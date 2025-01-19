@@ -333,12 +333,12 @@ class Effect_RandomColor : public WledEffect {
   : WledEffect(seg)
   {}
 
-  uint16_t renderEffect(Segment& seg, uint32_t now) override
+  uint16_t renderEffect(Segment& seg, uint32_t now, const WledEffectConfig& cfg) override
   {
-    uint32_t cycleTime = 200 + (255 - seg.speed)*50;
+    uint32_t cycleTime = 200 + (255 - cfg.speed())*50;
     uint32_t it = now / cycleTime;
     uint32_t rem = now % cycleTime;
-    unsigned fadedur = (cycleTime * seg.intensity) >> 8;
+    unsigned fadedur = (cycleTime * cfg.intensity()) >> 8;
 
     uint32_t fade = 255;
     if (fadedur) {

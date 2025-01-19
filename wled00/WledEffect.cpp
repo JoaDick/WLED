@@ -16,10 +16,12 @@ WledEffect::WledEffect(Segment& seg)
 
 uint16_t WledEffect::render_function(Segment& seg, uint32_t now, uint16_t defaultFrametime)
 {
-  if(!seg.effect) {
+  if (!seg.effect) {
     seg.fill(seg.getCurrentColor(0));
     return defaultFrametime;
   }
-  const uint16_t frametime = seg.effect->renderEffect(seg, now);
+
+  WledEffectConfig config(seg);
+  const uint16_t frametime = seg.effect->renderEffect(seg, now, config);
   return frametime ? frametime : defaultFrametime;
 }

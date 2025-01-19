@@ -111,7 +111,7 @@ Segment::Segment(Segment &&orig) noexcept {
   orig._dataLen = 0;
 }
 
-#if(0) // copy assignment deleted
+#if (0) // copy assignment deleted
 // copy assignment
 Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
@@ -177,7 +177,7 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
 }
 
 void IRAM_ATTR_YN Segment::deallocateData() {
-  if(effect) { delete effect; effect = nullptr; }
+  if (effect) { delete effect; effect = nullptr; }
   if (!data) { _dataLen = 0; return; }
   //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
