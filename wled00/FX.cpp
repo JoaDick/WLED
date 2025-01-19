@@ -12,6 +12,7 @@
 
 #include "wled.h"
 #include "FX.h"
+#include "WledEffect.h"
 #include "fcn_declare.h"
 
 

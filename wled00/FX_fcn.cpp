@@ -11,6 +11,7 @@
 */
 #include "wled.h"
 #include "FX.h"
+#include "WledEffect.h"
 #include "palettes.h"
 
 /*
@@ -110,7 +111,7 @@ Segment::Segment(Segment &&orig) noexcept {
   orig._dataLen = 0;
 }
 
-#if(0)
+#if(0) // copy assignment deleted
 // copy assignment
 Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
