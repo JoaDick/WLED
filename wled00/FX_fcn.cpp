@@ -90,6 +90,7 @@ bool Segment::_modeBlend = false;
 Segment::Segment(const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  effect = nullptr; // leave the effect at the origin; this copy shall create a new one
   _t = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
@@ -102,12 +103,14 @@ Segment::Segment(const Segment &orig) {
 Segment::Segment(Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  orig.effect = nullptr; // grabbed the effect from the origin; don't delete it there
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
 }
 
+#if(0)
 // copy assignment
 Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
@@ -119,6 +122,7 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
+    effect = nullptr; // leave the effect at the origin; this copy shall create a new one
     data = nullptr;
     _dataLen = 0;
     // copy source data
@@ -127,6 +131,7 @@ Segment& Segment::operator= (const Segment &orig) {
   }
   return *this;
 }
+#endif
 
 // move assignment
 Segment& Segment::operator= (Segment &&orig) noexcept {
@@ -136,6 +141,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     stopTransition();
     deallocateData(); // free old runtime data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
+    orig.effect = nullptr; // grabbed the effect from the origin; don't delete it there
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
@@ -170,6 +176,7 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
 }
 
 void IRAM_ATTR_YN Segment::deallocateData() {
+  if(effect) { delete effect; effect = nullptr; }
   if (!data) { _dataLen = 0; return; }
   //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
@@ -1585,7 +1592,7 @@ void WS2812FX::resetSegments() {
   #else
   segment seg = Segment(0, _length);
   #endif
-  _segments.push_back(seg);
+  _segments.push_back(std::move(seg));
   _segments.shrink_to_fit(); // just in case ...
   _mainSegment = 0;
 }

@@ -320,6 +320,50 @@ static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade t
 
 
 /*
+ * Lights all LEDs up in one random color. Then switches them
+ * to the next random color.
+ */
+class Effect_RandomColor : public WledEffect {
+ public:
+  static constexpr uint8_t FX_id = 255;
+  static constexpr char    FX_data[] PROGMEM = "Random Colors FX@!,Fade time;;!;01";
+
+  explicit Effect_RandomColor(Segment& seg)
+  : WledEffect(seg)
+  {}
+
+  uint16_t renderEffect(Segment& seg, uint32_t now) override
+  {
+    uint32_t cycleTime = 200 + (255 - seg.speed)*50;
+    uint32_t it = now / cycleTime;
+    uint32_t rem = now % cycleTime;
+    unsigned fadedur = (cycleTime * seg.intensity) >> 8;
+
+    uint32_t fade = 255;
+    if (fadedur) {
+      fade = (rem * 255) / fadedur;
+      if (fade > 255) fade = 255;
+    }
+
+    if (it != step) //new color
+    {
+      aux1 = aux0;
+      aux0 = get_random_wheel_index(aux0); //aux0 will store our random color wheel index
+      step = it;
+    }
+
+    seg.fill(color_blend(seg.color_wheel(aux1), seg.color_wheel(aux0), uint8_t(fade)));
+    return 0;
+  }
+
+ private:
+  uint32_t step = 2;             // trigger for new color
+  uint16_t aux0 = hw_random8();  // current color wheel index
+  uint16_t aux1 = 0;             // previous color wheel index
+};
+
+
+/*
  * Lights every LED in a random color. Changes all LED at the same time
  * to new random colors.
  */
@@ -7676,6 +7720,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
   addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
+  addWledEffect<Effect_RandomColor>(*this);
   addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);

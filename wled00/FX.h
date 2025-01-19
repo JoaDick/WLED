@@ -325,6 +325,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 
 #define MODE_COUNT                     187
 
+class WledEffect;
+
 typedef enum mapping1D2D {
   M12_Pixels = 0,
   M12_pBar = 1,
@@ -384,6 +386,7 @@ typedef struct Segment {
     uint16_t aux1;  // custom var
     byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
+    WledEffect* effect = nullptr;
 
     typedef struct TemporarySegmentData {
       uint16_t _optionsT;
@@ -523,7 +526,7 @@ typedef struct Segment {
       deallocateData();
     }
 
-    Segment& operator= (const Segment &orig); // copy assignment
+    Segment& operator= (const Segment &orig) = delete; // no copy assignment
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
 #ifdef WLED_DEBUG
@@ -976,5 +979,65 @@ class WS2812FX {  // 96 bytes
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
+
+/// Interface for WLED effects.
+class WledEffect {
+ public:
+  /// Destructor.
+  virtual ~WledEffect() = default;
+
+  /** Render the WLED Effect.
+   * Must be implemented by all child classes to render their specific animation on the Segment.
+   * @param seg The Segment to work on (a.k.a. 'SEGMENT').
+   * @param now The current timestamp (a.k.a. 'strip.now').
+   * @return The Effect's frametime (in ms), or 0 to use default frametime (a.k.a 'FRAMETIME').
+   */
+  virtual uint16_t renderEffect(Segment& seg, uint32_t now) = 0;
+
+  /** Effect's mode function (to be registered at the WLED framework).
+   * @tparam EFFECT_TYPE Class type of concrete Effect implementation. Must be a child of WledEffect.
+   * @see addWledEffect()
+   */
+  template<class EFFECT_TYPE>
+  static uint16_t mode_function()
+  {
+    extern WS2812FX strip;
+    Segment& seg = SEGMENT;
+    if(!seg.effect) {
+      seg.effect = new(std::nothrow) EFFECT_TYPE(seg);
+    }
+    return render_function(seg, strip.now, strip.getFrameTime());
+  }
+
+ protected:
+  /** Constructor. 
+   * @param seg The Effect's corresponding Segment to work on (a.k.a. 'SEGMENT').
+  */
+  explicit WledEffect(Segment& seg)
+  {
+    std::ignore = seg; // might later become useful
+  }
+
+ private:
+  static uint16_t render_function(Segment& seg, uint32_t now, uint16_t defaultFrametime)
+  {
+    if(!seg.effect) {
+      seg.fill(seg.getCurrentColor(0));
+      return defaultFrametime;
+    }
+    const uint16_t frametime = seg.effect->renderEffect(seg, now);
+    return frametime ? frametime : defaultFrametime;
+  }
+};
+
+/** Register an Effect's mode function at the WLED framework.
+ * @tparam EFFECT_TYPE Class type of concrete Effect implementation. Must be a child of WledEffect.
+ * @tparam strip WS2812FX instance, representing the WLED framework.
+ * @return The actual id used for the effect, or 255 if the add failed.
+ */
+template<class EFFECT_TYPE>
+uint8_t addWledEffect(WS2812FX& strip, uint8_t FX_id = EFFECT_TYPE::FX_id, const char* FX_data = EFFECT_TYPE::FX_data) {
+  return strip.addEffect(FX_id, &WledEffect::mode_function<EFFECT_TYPE>, FX_data);
+}
 
 #endif
