@@ -3,25 +3,28 @@
  * @author Joachim Dick
  */
 
-
 #include "wled.h"
 #include "WledEffect.h"
 
-
-WledEffect::WledEffect(Segment& seg)
+uint16_t WledEffect::renderEffect(Segment &seg, uint32_t now)
 {
-  std::ignore = seg; // might later become useful
-}
+  FxConfig configuration(seg);
+  FxEnv runtimeEnvironment{now, configuration};
 
-
-uint16_t WledEffect::render_function(Segment& seg, uint32_t now, uint16_t defaultFrametime)
-{
-  if (!seg.effect) {
-    seg.fill(seg.getCurrentColor(0));
-    return defaultFrametime;
+  // just a sanity check (out of pure curiosity)
+  if (&seg != &_fxs.seg)
+  {
+    // somehow purple
+    seg.fill(0x440022);
+    return 0;
   }
 
-  WledEffectConfig config(seg);
-  const uint16_t frametime = seg.effect->renderEffect(seg, now, config);
-  return frametime ? frametime : defaultFrametime;
+  return showEffect(seg, runtimeEnvironment);
+}
+
+uint16_t WledEffect::showFallbackEffect(Segment &seg, FxEnv &env)
+{
+  // somehow red
+  seg.fill(0x440000);
+  return 0;
 }

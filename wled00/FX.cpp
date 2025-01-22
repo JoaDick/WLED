@@ -324,21 +324,22 @@ static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade t
  * Lights all LEDs up in one random color. Then switches them
  * to the next random color.
  */
-class Effect_RandomColor : public WledEffect {
+class Effect_RandomColor : public WledEffect
+{
  public:
-  static constexpr uint8_t FX_id = 255;
-  static constexpr char    FX_data[] PROGMEM = "Random Colors FX@!,Fade time;;!;01";
+  static constexpr EffectID FX_id = AutoSelectID;
+  static constexpr char     FX_data[] PROGMEM = "Random Colors FX@!,Fade time;;!;01";
 
-  explicit Effect_RandomColor(Segment& seg)
-  : WledEffect(seg)
+  explicit Effect_RandomColor(FxSetup &fxs)
+  : WledEffect(fxs)
   {}
 
-  uint16_t renderEffect(Segment& seg, uint32_t now, const WledEffectConfig& cfg) override
+  uint16_t showEffect(Segment& seg, FxEnv &env) override
   {
-    uint32_t cycleTime = 200 + (255 - cfg.speed())*50;
-    uint32_t it = now / cycleTime;
-    uint32_t rem = now % cycleTime;
-    unsigned fadedur = (cycleTime * cfg.intensity()) >> 8;
+    uint32_t cycleTime = 200 + (255 - env.cfg.speed())*50;
+    uint32_t it = env.now / cycleTime;
+    uint32_t rem = env.now % cycleTime;
+    unsigned fadedur = (cycleTime * env.cfg.intensity()) >> 8;
 
     uint32_t fade = 255;
     if (fadedur) {
