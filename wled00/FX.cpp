@@ -7922,6 +7922,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+
+  addExperimentalEffects(*this);
 #endif // WLED_DISABLE_2D
 
 }

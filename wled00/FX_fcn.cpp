@@ -200,6 +200,7 @@ void IRAM_ATTR_YN Segment::deallocateData() {
 void Segment::resetIfRequired() {
   if (!reset) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
+  if (effect) { delete effect; effect = nullptr; }
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
