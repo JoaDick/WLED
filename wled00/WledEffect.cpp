@@ -19,9 +19,6 @@ void checkIfThisCompiles(Segment &seg)
 
 uint16_t WledFx::render(Segment &seg, uint32_t now)
 {
-  FxConfig configuration(seg);
-  FxEnv runtimeEnvironment{now, configuration};
-
   // just a sanity check (out of pure curiosity) if the Segment remains the same all the time
   if (&seg != &_fxs.seg)
   {
@@ -48,7 +45,21 @@ uint16_t WledFx::render(Segment &seg, uint32_t now)
     return 0;
   }
 
-  return showEffect(seg, runtimeEnvironment);
+  // we have to be recreated from scratch when the Segment's size has changed during runtime
+  // this is the case e.g. when "Mirror effect" setting is changed
+  if (seg.vLength() != _fxs.seglen)
+  {
+    // kill current effect; a new one will be created upon the next frame
+    delete seg.effect;
+    seg.effect = nullptr;
+    // don't change the Segment during this frame
+    return 0;
+  }
+
+  FxConfig configuration(seg);
+  FxEnv runtimeEnv{now, configuration};
+
+  return showEffect(seg, runtimeEnv);
 }
 
 uint16_t WledFx::showFallbackEffect(Segment &seg, FxEnv &env)

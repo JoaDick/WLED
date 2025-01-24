@@ -26,8 +26,9 @@ constexpr EffectID AutoSelectID = 255;
 class FxSetup
 {
 public:
-  /// The effect's corresponding Segment to work on (a.k.a. 'SEGMENT').
+  explicit FxSetup(Segment &s) : seg(s), seglen(s.vLength()) {}
   Segment &seg;
+  const uint16_t seglen;
 };
 
 /** Convenience interface for the effect's user configuration settings (from the UI).
@@ -39,7 +40,7 @@ public:
   /** Constructor.
    * @param seg The effect's corresponding Segment to work on (a.k.a. 'SEGMENT').
    */
-  explicit FxConfig(const Segment &seg) : _seg{seg} {}
+  explicit FxConfig(const Segment &seg) : _seg(seg) {}
 
   /// Current setting of the 'Speed" slider (with Clock icon) -- 'SEGMENT.speed'
   uint8_t speed() const { return _seg.speed; }
@@ -279,7 +280,7 @@ protected:
   uint16_t showEffect(Segment &seg, FxEnv &env) override
   {
     EmulatedFastLedArray leds(seg);
-    return showFastLed(leds, seg.vLength(), env);
+    return showFastLed(leds, leds.size(), env);
   }
 };
 
@@ -298,7 +299,7 @@ protected:
    * @param fxs Internal setup data.
    */
   explicit BufferedFastLedFxBase(FxSetup &fxs)
-      : WledFx(fxs), _numLeds{static_cast<uint16_t>(fxs.seg.vLength())}, _leds{new CRGB[_numLeds]}
+      : WledFx(fxs), _numLeds(fxs.seglen), _leds(new CRGB[_numLeds])
   {
     fill_solid(_leds.get(), _numLeds, CRGB::Black);
   }
