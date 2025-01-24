@@ -325,7 +325,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 
 #define MODE_COUNT                     187
 
-class WledEffect;
+class WledFx;
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
@@ -386,7 +386,7 @@ typedef struct Segment {
     uint16_t aux1;  // custom var
     byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
-    WledEffect* effect = nullptr;
+    WledFx* effect = nullptr;
 
     typedef struct TemporarySegmentData {
       uint16_t _optionsT;

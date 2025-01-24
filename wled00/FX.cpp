@@ -324,15 +324,13 @@ static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade t
  * Lights all LEDs up in one random color. Then switches them
  * to the next random color.
  */
-class Effect_RandomColor : public WledEffect
+class Fx_RandomColor : public WledFx
 {
  public:
   static constexpr EffectID FX_id = AutoSelectID;
   static constexpr char     FX_data[] PROGMEM = "Random Colors FX@!,Fade time;;!;01";
 
-  explicit Effect_RandomColor(FxSetup &fxs)
-  : WledEffect(fxs)
-  {}
+  explicit Fx_RandomColor(FxSetup &fxs) : WledFx(fxs) {}
 
   uint16_t showEffect(Segment& seg, FxEnv &env) override
   {
@@ -7722,7 +7720,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
   addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
-  addWledEffect<Effect_RandomColor>(*this);
+  addWledEffect<Fx_RandomColor>(*this);
   addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);

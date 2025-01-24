@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <memory>
 #include "FX.h"
 #include "FastLED.h"
 
@@ -101,21 +102,21 @@ public:
 
 /** Interface for WLED effects.
  * All class-based WLED effects must derive from this class. This requires them to override the
- * renderEffect() method, which is the replacement for a mode_XXX() function. All fancy pixel magic
+ * showEffect() method, which is the replacement for a mode_XXX() function. All fancy pixel magic
  * that is rendered on the LED segment shall be done there.
  */
-class WledEffect
+class WledFx
 {
 public:
-  WledEffect(WledEffect &&) = delete;
-  WledEffect &operator=(const WledEffect &) = delete;
-  WledEffect &operator=(WledEffect &&) = delete;
+  WledFx(WledFx &&) = delete;
+  WledFx &operator=(const WledFx &) = delete;
+  WledFx &operator=(WledFx &&) = delete;
 
   /// Destructor.
-  virtual ~WledEffect() = default;
+  virtual ~WledFx() = default;
 
   /** Effect's mode function (to be registered at the WLED framework).
-   * @tparam EFFECT_TYPE Class type of concrete effect implementation. Must be a child of WledEffect.
+   * @tparam EFFECT_TYPE Class type of concrete effect implementation. Must be a child of WledFx.
    * @see addWledEffect()
    */
   template <class EFFECT_TYPE>
@@ -143,15 +144,15 @@ public:
    * @param now The current timestamp (a.k.a. 'strip.now').
    * @return The effect's frametime (in ms), or 0 to use default frametime (a.k.a 'FRAMETIME').
    */
-  uint16_t renderEffect(Segment &seg, uint32_t now);
+  uint16_t render(Segment &seg, uint32_t now);
 
 protected:
-  WledEffect(const WledEffect &) = default;
+  WledFx(const WledFx &) = default;
 
   /** Constructor.
    * @param fxs Internal setup data.
    */
-  explicit WledEffect(FxSetup &fxs) : _fxs(fxs) {}
+  explicit WledFx(FxSetup &fxs) : _fxs(fxs) {}
 
   /** Rendering function for the custom WLED effect.
    * Must be implemented by all child classes to show their specific animation on the Segment.
@@ -161,13 +162,13 @@ protected:
    */
   virtual uint16_t showEffect(Segment &seg, FxEnv &env) = 0;
 
-  /// TBD
-  Segment &getCurrentSegment() { return _fxs.seg; }
+  // // Only for development.
+  // Segment &getSegment() { return _fxs.seg; }
 
 private:
   static uint16_t render_function(Segment &seg, uint32_t now, uint16_t defaultFrametime)
   {
-    const uint16_t frametime = seg.effect->renderEffect(seg, now);
+    const uint16_t frametime = seg.effect->render(seg, now);
     return frametime ? frametime : defaultFrametime;
   }
 
@@ -177,14 +178,14 @@ private:
 
 /** Register an effect's mode function at the WLED framework.
  * For format of \a FX_data see https://kno.wled.ge/interfaces/json-api/#effect-metadata
- * @tparam EFFECT_TYPE Class type of concrete effect implementation. Must be a child of WledEffect.
+ * @tparam EFFECT_TYPE Class type of concrete effect implementation. Must be a child of WledFx.
  * @param strip WS2812FX instance, representing the WLED framework.
  * @return The actual id used for the effect, or 255 if the add failed.
  */
 template <class EFFECT_TYPE>
 uint8_t addWledEffect(WS2812FX &wled, uint8_t FX_id = EFFECT_TYPE::FX_id, const char *FX_data = EFFECT_TYPE::FX_data)
 {
-  return wled.addEffect(FX_id, &WledEffect::mode_function<EFFECT_TYPE>, FX_data);
+  return wled.addEffect(FX_id, &WledFx::mode_function<EFFECT_TYPE>, FX_data);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -205,10 +206,7 @@ struct ProxyCRGB : public CRGB
   ProxyCRGB &operator=(const ProxyCRGB &) = delete;
   ProxyCRGB &operator=(ProxyCRGB &&) = delete;
 
-  ProxyCRGB(Segment &seg, int index)
-      : CRGB(seg.getPixelColor(index)), _seg(seg), _index(index)
-  {
-  }
+  ProxyCRGB(Segment &seg, int index) : CRGB(seg.getPixelColor(index)), _seg(seg), _index(index) {}
 
   ~ProxyCRGB()
   {
@@ -231,22 +229,14 @@ private:
 };
 
 /** Internal helper class for emulating a FastLED LED array.
+ * Use the index-operator to access an individual LED.
  */
 class EmulatedFastLedArray
 {
 public:
-  explicit EmulatedFastLedArray(Segment &seg)
-      : _seg(seg)
-  {
-  }
-
-  ProxyCRGB operator[](int index)
-  {
-    return ProxyCRGB(_seg, index);
-  }
-
+  explicit EmulatedFastLedArray(Segment &seg) : _seg(seg) {}
+  ProxyCRGB operator[](int index) { return ProxyCRGB(_seg, index); }
   uint16_t size() const { return _seg.vLength(); }
-
   Segment &getSegment() { return _seg; }
 
 private:
@@ -261,15 +251,15 @@ inline void fadeToBlackBy(EmulatedFastLedArray &leds, uint8_t fadeBy) { leds.get
  * ... usage ...
  * ... limitations ...
  */
-class EmulatedFastLedEffectBase : public WledEffect
+class EmulatedFastLedFxBase : public WledFx
 {
 protected:
-  EmulatedFastLedEffectBase(const EmulatedFastLedEffectBase &) = default;
+  EmulatedFastLedFxBase(const EmulatedFastLedFxBase &) = default;
 
   /** Constructor.
    * @param fxs Internal setup data.
    */
-  explicit EmulatedFastLedEffectBase(FxSetup &fxs) : WledEffect(fxs) {}
+  explicit EmulatedFastLedFxBase(FxSetup &fxs) : WledFx(fxs) {}
 
   /** Rendering function for the custom FastLED effect.
    * Must be implemented by all child classes to show their specific animation.
@@ -278,14 +268,14 @@ protected:
    * CRGB leds[numleds];
    * \endcode
    *
-   * @param leds Emulated LED array.
-   * @param numleds Number of LEDs in the array.
+   * @param leds Emulated LED array (with limited functionality).
+   * @param num_leds Number of LEDs in the array.
    * @param env Runtime environment for rendering the effect.
    * @return The effect's frametime (in ms), or 0 to use default frametime.
    */
-  virtual uint16_t showFastLed(EmulatedFastLedArray &leds, uint16_t numleds, FxEnv &env) = 0;
+  virtual uint16_t showFastLed(EmulatedFastLedArray &leds, uint16_t num_leds, FxEnv &env) = 0;
 
-  /// @see WledEffect::showEffect()
+  /// @see WledFx::showEffect()
   uint16_t showEffect(Segment &seg, FxEnv &env) override
   {
     EmulatedFastLedArray leds(seg);
@@ -295,6 +285,37 @@ protected:
 
 //--------------------------------------------------------------------------------------------------
 
-/** TODO: Base class for more complex FastLED based effects (with buffering of the LED array).
+/** Base class for fully featured FastLED based effects (with an internally buffered FastLED array).
+ * ... usage ...
+ * ... limitations ...
  */
-class BufferedFastLedEffectBase;
+class BufferedFastLedFxBase : public WledFx
+{
+protected:
+  BufferedFastLedFxBase(const BufferedFastLedFxBase &) = delete; // should clone _leds
+
+  /** Constructor.
+   * @param fxs Internal setup data.
+   */
+  explicit BufferedFastLedFxBase(FxSetup &fxs)
+      : WledFx(fxs), _numLeds{static_cast<uint16_t>(fxs.seg.vLength())}, _leds{new CRGB[_numLeds]}
+  {
+    fill_solid(_leds.get(), _numLeds, CRGB::Black);
+  }
+
+  /** Rendering function for the custom FastLED effect.
+   * Must be implemented by all child classes to show their specific animation.
+   * @param leds Real FastLED array (with full functionality).
+   * @param num_leds Number of LEDs in the array.
+   * @param env Runtime environment for rendering the effect.
+   * @return The effect's frametime (in ms), or 0 to use default frametime.
+   */
+  virtual uint16_t showFastLed(CRGB leds[], uint16_t num_leds, FxEnv &env) = 0;
+
+  /// @see WledFx::showEffect()
+  uint16_t showEffect(Segment &seg, FxEnv &env) override;
+
+private:
+  const uint16_t _numLeds;
+  std::unique_ptr<CRGB[]> _leds;
+};
