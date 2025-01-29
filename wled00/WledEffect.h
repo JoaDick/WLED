@@ -191,7 +191,7 @@ uint8_t addWledEffect(WS2812FX &wled, uint8_t FX_id = EFFECT_TYPE::FX_id, const 
 
 //--------------------------------------------------------------------------------------------------
 
-/** Internal helper class for emulating a FastLED CRGB pixel, which is tied to a WLED pixel.
+/** Internal helper for emulating a FastLED CRGB pixel, which is tied to a WLED pixel.
  * Upon construction, it loads the current color from the corresponding WLED Segment's pixel.
  * During lifetime, it "feels and behaves" like a FastLED CRGB pixel; meaning it can be manipulated
  * just as known from FastLED animations.
@@ -229,24 +229,20 @@ private:
   bool _muted = false;
 };
 
-/** Internal helper class for emulating a FastLED LED array.
- * Use the index-operator to access an individual LED.
+/** Internal helper for emulating a FastLED LED array.
+ * Use the index-operator to select and manipulate an individual LED.
  */
-class EmulatedFastLedArray
+struct EmulatedFastLedArray
 {
-public:
-  explicit EmulatedFastLedArray(Segment &seg) : _seg(seg) {}
-  ProxyCRGB operator[](int index) { return ProxyCRGB(_seg, index); }
-  uint16_t size() const { return _seg.vLength(); }
-  Segment &getSegment() { return _seg; }
-
-private:
-  Segment &_seg;
+  explicit EmulatedFastLedArray(Segment &s) : seg(s) {}
+  ProxyCRGB operator[](int index) { return ProxyCRGB(seg, index); }
+  uint16_t size() const { return seg.vLength(); }
+  Segment &seg;
 };
 
-inline void fill_solid(EmulatedFastLedArray &leds, const CRGB &color) { leds.getSegment().fill_solid(color); }
+inline void fill_solid(EmulatedFastLedArray &leds, const CRGB &color) { leds.seg.fill_solid(color); }
 
-inline void fadeToBlackBy(EmulatedFastLedArray &leds, uint8_t fadeBy) { leds.getSegment().fadeToBlackBy(fadeBy); }
+inline void fadeToBlackBy(EmulatedFastLedArray &leds, uint8_t fadeBy) { leds.seg.fadeToBlackBy(fadeBy); }
 
 /** Base class for simple FastLED based effects (which emulates the LED array without buffering).
  * ... usage ...
