@@ -7,6 +7,7 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
+#include <array>
 
 //--------------------------------------------------------------------------------------------------
 
@@ -318,15 +319,18 @@ public:
   /// Get color of the pixel at the given \a index
   PxColor getColor(int index) const { return _seg.getPixelColor(index); }
 
-  /** Draw a line in the given \a color, from the given \a first to \a last pixel.
-   * Direction doesn't matter; \a last may be smaller than \a first.
+  /** Draw a line in the given \a color, from the given \a firstIndex to \a lastIndex pixel.
+   * Direction doesn't matter; \a lastIndex may be smaller than \a firstIndex.
    */
-  void lineAbs(int first, int last, PxColor color);
+  void lineAbs(int firstIndex, int lastIndex, PxColor color);
 
-  /** Draw a line in the given \a color, with the given \a length and starting at \a start.
+  /** Draw a line in the given \a color, with the given \a length and starting at \a startIndex.
    * Positive values for \a length draw upward the array, negative values draw in other direction.
    */
-  void lineRel(int start, int length, PxColor color);
+  void lineRel(int startIndex, int length, PxColor color);
+
+  /// Similar to lineRel() but draws around the given \a centerIndex
+  void lineCentered(int centerIndex, int length, PxColor color) { lineRel(centerIndex - length / 2.0, length, color); }
 
   /// Fill segment with the given \a color
   void fill(uint32_t color) { _seg.fill(color); }
@@ -360,10 +364,13 @@ public:
   void n_setColor(float pos, byte r, byte g, byte b, byte w = 0) { setColor(n_pixelIndex(pos), r, g, b, w); }
 
   /// As lineAbs() but with normalized pixel positions; see n_pixelIndex()
-  void n_lineAbs(float first, float last, PxColor color) { lineAbs(n_pixelIndex(first), n_pixelIndex(last), color); }
+  void n_lineAbs(float firstPos, float lastPos, PxColor color) { lineAbs(n_pixelIndex(firstPos), n_pixelIndex(lastPos), color); }
 
   /// As lineRel() but with normalized pixel positions; see n_pixelIndex()
-  void n_lineRel(float start, float length, PxColor color) { lineRel(n_pixelIndex(start), n_pixelIndex(length), color); }
+  void n_lineRel(float startPos, float length, PxColor color) { lineRel(n_pixelIndex(startPos), n_pixelIndex(length), color); }
+
+  /// Similar to n_lineRel() but draws around the given \a centerPos point.
+  void n_lineCentered(float centerPos, float length, PxColor color) { n_lineRel(centerPos - length / 2.0, length, color); }
 
   /// Backdoor: Get the underlying Segment.
   Segment &getSegment() { return _seg; }
@@ -410,9 +417,12 @@ public:
   // Range: 0 .. 255
   uint16_t volumeRaw() const { return *static_cast<const uint16_t *>(um_data->u_data[1]); }
 
+  // number of FFT bins provided by fftResult()
+  static constexpr uint8_t fftResult_size() { return 16; /* NUM_GEQ_CHANNELS */ }
+
   // Our calculated freq. channel result table to be used by effects
   const uint8_t *fftResult() const { return static_cast<const uint8_t *>(um_data->u_data[2]); }
-  static constexpr uint8_t fftResult_size() { return 16; /* NUM_GEQ_CHANNELS */ }
+  uint8_t fftResult(uint8_t index) const { return index < fftResult_size() ? fftResult()[index] : 0; }
 
   // Boolean flag for peak - used in effects. Responding routine may reset this flag. Auto-reset after strip.getFrameTime()
   bool samplePeak() const { return *static_cast<const bool *>(um_data->u_data[3]); }

@@ -46,14 +46,6 @@ uint16_t mode_PxArray_example()
 }
 static const char _data_FX_mode_FOO[] PROGMEM = "A PxArray@,Tail";
 
-// just to check if it compiles
-void audioReactiveFoo(Segment &seg)
-{
-  AudioReactiveUmData data(seg);
-
-  data.samplePeak();
-}
-
 //--------------------------------------------------------------------------------------------------
 
 /// TBD ...
@@ -68,7 +60,7 @@ public:
 private:
   uint16_t showEffect(uint32_t now) override { return showFallbackEffect(now); }
 };
-const char FallbackEffect::FX_data[] PROGMEM = "A FallbackEffect@!";
+const char FallbackEffect::FX_data[] PROGMEM = "A FallbackEffect@";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -102,7 +94,6 @@ private:
     AudioReactiveUmData audioData(seg);
 
     pixels->fadeToBlackBy(1 + config.intensity() / 2);
-    // pixels.setColor(segenv.call() % seglen, config.auxColor());
 
     const float posSmth = audioData.n_volumeSmth();
     const float posRaw = audioData.volumeRaw() / 255.0;
@@ -139,6 +130,97 @@ const char SoundmeterEffect::FX_data[] PROGMEM = "A Soundmeter@,Fading;Smth,Raw,
 
 //--------------------------------------------------------------------------------------------------
 
+/// Inline Equalizer.
+struct InlineEqEffect : public EffectRunner
+{
+  static const EffectID FX_id = AutoSelectID;
+  static const char FX_data[];
+  explicit InlineEqEffect(FxSetup &fxs) : EffectRunner(fxs) {}
+
+private:
+  uint16_t showEffect(uint32_t now) override
+  {
+    const uint8_t numBlobs = AudioReactiveUmData::fftResult_size() / 3;
+    std::array<float, numBlobs> blobs;
+
+    AudioReactiveUmData audioData(seg);
+    // take the average of 3 FFT bins as one blob's size (ignoring the last bin)
+    for (uint8_t i = 0; i < audioData.fftResult_size(); i += 3)
+    {
+      float fftAvg = audioData.fftResult(i);
+      fftAvg += audioData.fftResult(i + 1);
+      fftAvg += audioData.fftResult(i + 2);
+      fftAvg /= 3;
+      blobs[i / 3] = fftAvg / 255.0;
+    }
+
+    PxArray pixels(seg);
+    pixels->fadeToBlackBy(config.intensity());
+    for (uint8_t i = 0; i < numBlobs; ++i)
+    {
+      const float blobSize = blobs[i] / numBlobs;
+      const float maxBlobSize = 1.0 / numBlobs;
+      const float centerPos = maxBlobSize / 2.0 + i * maxBlobSize;
+      // TODO: somehow use a color palette 
+      pixels.n_lineCentered(centerPos, blobSize, config.fxColor());
+    }
+
+    return 0;
+  }
+};
+const char InlineEqEffect::FX_data[] PROGMEM = "A Inline EQ@,Fading;!;;1f;ix=96";
+
+/// Inline Equalizer 2. Doesn't turn out good - too twitchy. :-(
+struct InlineEq2Effect : public EffectRunner
+{
+  static const EffectID FX_id = AutoSelectID;
+  static const char FX_data[];
+  explicit InlineEq2Effect(FxSetup &fxs) : EffectRunner(fxs) {}
+
+private:
+  uint16_t showEffect(uint32_t now) override
+  {
+    const uint8_t arrayLen = 1 + 2 * (AudioReactiveUmData::fftResult_size() / 4);
+    std::array<float, arrayLen> blobSizes;
+    for (auto &blobSize : blobSizes)
+    {
+      blobSize = 0.33;
+    }
+
+    AudioReactiveUmData audioData(seg);
+    for (uint8_t i = 0; i < audioData.fftResult_size(); i += 4)
+    {
+      float fftAvg = audioData.fftResult(i);
+      fftAvg += audioData.fftResult(i + 1);
+      fftAvg += audioData.fftResult(i + 2);
+      fftAvg += audioData.fftResult(i + 3);
+      fftAvg /= 4;
+      blobSizes[1 + 2 * (i / 4)] = fftAvg / 255.0;
+    }
+
+    std::array<float, arrayLen> blobOffsets;
+    float totalSize = 0.0;
+    for (uint8_t i = 0; i < arrayLen; ++i)
+    {
+      blobOffsets[i] = totalSize;
+      totalSize += blobSizes[i];
+    }
+    const float scaleFactor = 1.0 / totalSize;
+
+    PxArray pixels(seg);
+    pixels.fill(0);
+    for (uint8_t i = 1; i < arrayLen; i += 2)
+    {
+      pixels.n_lineRel(blobOffsets[i] * scaleFactor, blobSizes[i] * scaleFactor, config.fxColor());
+    }
+
+    return 0;
+  }
+};
+const char InlineEq2Effect::FX_data[] PROGMEM = "A Inline EQ 2@;!;;1f";
+
+//--------------------------------------------------------------------------------------------------
+
 /// more effect class examples ...
 
 //--------------------------------------------------------------------------------------------------
@@ -147,6 +229,8 @@ void UmEffectRunner::addEffects(WS2812FX &wled)
 {
   wled.addEffect(AutoSelectID, &mode_PxArray_example, _data_FX_mode_FOO);
   addEffectRunner<FallbackEffect>(wled);
+  addEffectRunner<InlineEqEffect>(wled);
+  addEffectRunner<InlineEq2Effect>(wled);
   addEffectRunner<SoundmeterEffect>(wled);
 }
 
