@@ -254,6 +254,10 @@
   #include "../usermods/usermod_v2_RF433/usermod_v2_RF433.h"
 #endif
 
+#ifdef USERMOD_EFFECT_RUNNER
+  #include "../usermods/EffectRunner/usermod_EffectRunner.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -493,5 +497,9 @@ void registerUsermods()
 
   #ifdef USERMOD_RF433
   UsermodManager::add(new RF433Usermod());
+  #endif
+
+  #ifdef USERMOD_EFFECT_RUNNER
+  UsermodManager::add(new UmEffectRunner());
   #endif
 }
