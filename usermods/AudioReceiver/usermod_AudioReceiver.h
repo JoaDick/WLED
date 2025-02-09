@@ -25,12 +25,11 @@
  * a Windows server like https://github.com/Victoare/SR-WLED-audio-server-win
  */
 class UmAudioReceiver : public Usermod {
-
-  #define MAX_PALETTES 3
+  static constexpr uint8_t MAX_PALETTES = 3;
+  static constexpr uint8_t NUM_GEQ_CHANNELS = 16; // number of frequency channels. Don't change !!
 
   bool udpSyncConnected = false;         // UDP connection status -> true if connected to multicast group
-  
-  #define NUM_GEQ_CHANNELS 16                                           // number of frequency channels. Don't change !!
+  unsigned long last_connection_attempt = 0;
   
   // audioreactive variables
   // variables used in effects
@@ -91,7 +90,7 @@ class UmAudioReceiver : public Usermod {
       double FFT_MajorPeak;   //  08 Bytes
     };
 
-    #define UDPSOUND_MAX_PACKET 88 // max packet size for audiosync
+    static constexpr uint8_t  UDPSOUND_MAX_PACKET = 88;  // max packet size for audiosync
 
     // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
     #ifdef UM_AUDIOREACTIVE_ENABLE
@@ -131,6 +130,8 @@ class UmAudioReceiver : public Usermod {
     CRGB getCRGBForBand(int x, int pal);
     void fillAudioPalettes(void);
 
+    float syncVolumeSmth = 0;
+
     unsigned long last_time = 0;
     float last_volumeSmth = 0.0f;
   /* Limits the dynamics of volumeSmth (= sampleAvg or sampleAgc). 
@@ -160,8 +161,6 @@ class UmAudioReceiver : public Usermod {
       last_volumeSmth = volumeSmth;
       last_time = millis();
     }
-
-    unsigned long last_connection_attempt = 0;
 
     // try to establish UDP sound sync connection
     void connectUDPSoundSync(void) {
@@ -258,15 +257,28 @@ class UmAudioReceiver : public Usermod {
 
 
   public:
-    // we are pretending to be usermod AudioReactive so that the effects
-    // won't notice a difference where the audio data is comming from
-    uint16_t getId() override { return USERMOD_ID_AUDIOREACTIVE; }
+    /// @see Usermod::getId()
+    /// @see MyExampleUsermod::getId()
+    uint16_t getId() override
+    {
+      // we are pretending to be usermod AudioReactive so that the effects
+      // won't notice a difference where the audio data is comming from
+      return USERMOD_ID_AUDIOREACTIVE;
+    }
 
-    /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
-     * It is called *AFTER* readFromConfig()
-     */
+
+    /// @see Usermod::getUMData()
+    /// @see MyExampleUsermod::getUMData()
+    bool getUMData(um_data_t **data) override
+    {
+      if (!enabled || !data) return false;
+      *data = um_data;
+      return true;
+    }
+
+
+    /// @see Usermod::setup()
+    /// @see MyExampleUsermod::setup()
     void setup() override
     {
       if (!isInitDone()) {
@@ -300,10 +312,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    /*
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
-     */
+    /// @see Usermod::connected()
+    /// @see MyExampleUsermod::connected()
     void connected() override
     {
       if (udpSyncConnected) {   // clean-up: if open, close old UDP sync connection
@@ -321,17 +331,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    float syncVolumeSmth = 0;
-    /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
-     * 
-     * Tips:
-     * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-     *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
-     * 
-     * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-     *    Instead, use a timer check as shown here.
-     */
+    /// @see Usermod::loop()
+    /// @see MyExampleUsermod::loop()
     void loop() override
     {
       if (!enabled) {
@@ -361,14 +362,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    bool getUMData(um_data_t **data) override
-    {
-      if (!data || !enabled) return false; // no pointer provided by caller or not enabled -> exit
-      *data = um_data;
-      return true;
-    }
-
-
+    /// @see Usermod::onUpdateBegin()
+    /// @see MyExampleUsermod::onUpdateBegin()
     void onUpdateBegin(bool init) override
     {
       // reset sound data
@@ -388,15 +383,9 @@ class UmAudioReceiver : public Usermod {
       updateIsRunning = init;
     }
 
-    ////////////////////////////
-    // Settings and Info Page //
-    ////////////////////////////
 
-    /*
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-     * Below it is shown how this could be used for e.g. a light sensor
-     */
+    /// @see Usermod::addToJsonInfo()
+    /// @see MyExampleUsermod::addToJsonInfo()
     void addToJsonInfo(JsonObject& root) override
     {
       JsonObject user = root["u"];
@@ -420,12 +409,12 @@ class UmAudioReceiver : public Usermod {
         if (udpSyncConnected) {
           if (millis() - last_UDPTime < 2500)
           {
-            infoArr.add(F("receiving"));
-            if (receivedFormat == 1) infoArr.add(F(" v1"));
-            if (receivedFormat == 2) infoArr.add(F(" v2"));
+            infoArr.add(F("receiving v"));
+            if (receivedFormat == 1) infoArr.add(F("1"));
+            if (receivedFormat == 2) infoArr.add(F("2"));
             }
           else
-            infoArr.add(F("idle"));
+            infoArr.add(F("<i>(no server)</i>"));
         } else {
           infoArr.add(F("<i>(unconnected)</i>"));
         }
@@ -433,10 +422,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
-     */
+    /// @see Usermod::addToJsonState()
+    /// @see MyExampleUsermod::addToJsonState()
     void addToJsonState(JsonObject& root) override
     {
       if (!isInitDone()) return;  // prevent crash on boot applyPreset()
@@ -448,10 +435,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
-     */
+    /// @see Usermod::readFromJsonState()
+    /// @see MyExampleUsermod::readFromJsonState()
     void readFromJsonState(JsonObject& root) override
     {
       if (!isInitDone()) return;  // prevent crash on boot applyPreset()
@@ -474,6 +459,9 @@ class UmAudioReceiver : public Usermod {
       }
     }
 
+
+    /// @see Usermod::onStateChange()
+    /// @see MyExampleUsermod::onStateChange()
     void onStateChange(uint8_t callMode) override {
       if (isInitDone() && enabled && addPalettes && palettes==0 && strip.customPalettes.size()<10) {
         // if palettes were removed during JSON call re-add them
@@ -481,41 +469,9 @@ class UmAudioReceiver : public Usermod {
       }
     }
 
-    /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
-     * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
-     * 
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
-     * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
-     * 
-     * addToConfig() will make your settings editable through the Usermod Settings page automatically.
-     *
-     * Usermod Settings Overview:
-     * - Numeric values are treated as floats in the browser.
-     *   - If the numeric value entered into the browser contains a decimal point, it will be parsed as a C float
-     *     before being returned to the Usermod.  The float data type has only 6-7 decimal digits of precision, and
-     *     doubles are not supported, numbers will be rounded to the nearest float value when being parsed.
-     *     The range accepted by the input field is +/- 1.175494351e-38 to +/- 3.402823466e+38.
-     *   - If the numeric value entered into the browser doesn't contain a decimal point, it will be parsed as a
-     *     C int32_t (range: -2147483648 to 2147483647) before being returned to the usermod.
-     *     Overflows or underflows are truncated to the max/min value for an int32_t, and again truncated to the type
-     *     used in the Usermod when reading the value from ArduinoJson.
-     * - Pin values can be treated differently from an integer value by using the key name "pin"
-     *   - "pin" can contain a single or array of integer values
-     *   - On the Usermod Settings page there is simple checking for pin conflicts and warnings for special pins
-     *     - Red color indicates a conflict.  Yellow color indicates a pin with a warning (e.g. an input-only pin)
-     *   - Tip: use int8_t to store the pin value in the Usermod, so a -1 value (pin not set) can be used
-     *
-     * See usermod_v2_auto_save.h for an example that saves Flash space by reusing ArduinoJson key name strings
-     * 
-     * If you need a dedicated settings page with custom layout for your Usermod, that takes a lot more work.  
-     * You will have to add the setting to the HTML, xml.cpp and set.cpp manually.
-     * See the WLED Soundreactive fork (code and wiki) for reference.  https://github.com/atuline/WLED
-     * 
-     * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
-     */
+
+    /// @see Usermod::addToConfig()
+    /// @see MyExampleUsermod::addToConfig()
     void addToConfig(JsonObject& root) override
     {
       JsonObject top = root.createNestedObject(FPSTR(_name));
@@ -532,21 +488,8 @@ class UmAudioReceiver : public Usermod {
     }
 
 
-    /*
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
-     * This is called by WLED when settings are loaded (currently this only happens immediately after boot, or after saving on the Usermod Settings page)
-     * 
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
-     * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
-     * 
-     * Return true in case the config values returned from Usermod Settings were complete, or false if you'd like WLED to save your defaults to disk (so any missing values are editable in Usermod Settings)
-     * 
-     * getJsonValue() returns false if the value is missing, or copies the value into the variable provided and returns true if the value is present
-     * The configComplete variable is true only if the "exampleUsermod" object and all values are present.  If any values are missing, WLED will know to call addToConfig() to save them
-     * 
-     * This function is guaranteed to be called on boot, but could also be called every time settings are updated
-     */
+    /// @see Usermod::readFromConfig()
+    /// @see MyExampleUsermod::readFromConfig()
     bool readFromConfig(JsonObject& root) override
     {
       JsonObject top = root[FPSTR(_name)];
@@ -570,11 +513,9 @@ class UmAudioReceiver : public Usermod {
       return configComplete;
     }
 
-    /*
-     * appendConfigData() is called when user enters usermod settings page
-     * it may add additional metadata for certain entry fields (adding drop down is possible)
-     * be careful not to add too much as oappend() buffer is limited to 3k
-     */
+
+    /// @see Usermod::appendConfigData()
+    /// @see MyExampleUsermod::appendConfigData()
     void appendConfigData(Print& uiScript) override
     {
       uiScript.print(F("ux='AudioReceiver';"));         // ux = shortcut for AudioReceiver - fingers crossed that "ux" isn't already used as JS var, html post parameter or css style
@@ -588,6 +529,14 @@ class UmAudioReceiver : public Usermod {
 };
 
 //--------------------------------------------------------------------------------------------------
+
+// strings to reduce flash memory usage (used more than twice)
+const char UmAudioReceiver::_name[]       PROGMEM = "AudioReceiver";
+const char UmAudioReceiver::_enabled[]    PROGMEM = "enabled";
+const char UmAudioReceiver::_dynamics[]   PROGMEM = "dynamics";
+const char UmAudioReceiver::_addPalettes[]       PROGMEM = "add-palettes";
+const char UmAudioReceiver::UDP_SYNC_HEADER[]    PROGMEM = "00002"; // new sync header version, as format no longer compatible with previous structure
+const char UmAudioReceiver::UDP_SYNC_HEADER_v1[] PROGMEM = "00001"; // old sync header version - need to add backwards-compatibility feature
 
 void UmAudioReceiver::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
@@ -674,11 +623,3 @@ void UmAudioReceiver::fillAudioPalettes() {
     strip.customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
   }
 }
-
-// strings to reduce flash memory usage (used more than twice)
-const char UmAudioReceiver::_name[]       PROGMEM = "AudioReceiver";
-const char UmAudioReceiver::_enabled[]    PROGMEM = "enabled";
-const char UmAudioReceiver::_dynamics[]   PROGMEM = "dynamics";
-const char UmAudioReceiver::_addPalettes[]       PROGMEM = "add-palettes";
-const char UmAudioReceiver::UDP_SYNC_HEADER[]    PROGMEM = "00002"; // new sync header version, as format no longer compatible with previous structure
-const char UmAudioReceiver::UDP_SYNC_HEADER_v1[] PROGMEM = "00001"; // old sync header version - need to add backwards-compatibility feature
