@@ -154,6 +154,10 @@
   #include "../usermods/audioreactive/audio_reactive.h"
 #endif
 
+#ifdef USERMOD_AUDIORECEIVER
+  #include "../usermods/AudioReceiver/usermod_AudioReceiver.h"
+#endif
+
 #ifdef USERMOD_ANALOG_CLOCK
   #include "../usermods/Analog_Clock/Analog_Clock.h"
 #endif
@@ -393,6 +397,10 @@ void registerUsermods()
 
   #ifdef USERMOD_AUDIOREACTIVE
   UsermodManager::add(new AudioReactive());
+  #endif
+
+  #ifdef USERMOD_AUDIORECEIVER
+  UsermodManager::add(new UmAudioReceiver());
   #endif
 
   #ifdef USERMOD_ANALOG_CLOCK
