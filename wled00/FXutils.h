@@ -18,10 +18,41 @@ using EffectID = std::uint8_t;
 constexpr EffectID AutoSelectID = 255;
 
 /** Generic pixel color.
- * Idea: To be refacotored into a class with (implicit) conversions from all kind of color models
- * and implicit conversion to \c uint32_t
+ * Supports implicit conversion from \c uint32_t (WW-RR-GG-BB) and FastLED's \c CRGB & \c CHSV
+ * as well as implicit conversion to \c uint32_t and \c CRGB
  */
-using PxColor = uint32_t;
+struct PxColor
+{
+  /// Default constructor - leaves the color uninitialized!
+  PxColor() = default;
+
+  /// Create from discrete R-G-B (-W) portions.
+  PxColor(byte r, byte g, byte b, byte w = 0) : wrgb(RGBW32(r, g, b, w)) {}
+
+  PxColor(uint32_t c) : wrgb(c) {}
+  PxColor(CRGB c) : wrgb(c) {}
+  PxColor(CHSV c) : wrgb(CRGB(c)) {}
+
+  operator uint32_t() const { return wrgb; }
+  operator CRGB() const { return wrgb; }
+
+  /// The pixel's 32 bit color value (white - red - green - blue).
+  uint32_t wrgb;
+
+  /** Put more emphasis on the red'ish colors.
+   * Can be used for the \c hue parameter of a \c CHSV color.
+   */
+  static uint8_t redShift(uint8_t hue)
+  {
+    return cos8(128 + hue / 2);
+  }
+
+  PxColor &operator=(PxColor other)
+  {
+    wrgb = other.wrgb;
+    return *this;
+  }
+};
 
 /** Internal setup data for the effects.
  * @note Not intended to be used by the effect implementations (because it's likely to be changed).
@@ -43,7 +74,11 @@ public:
 class FxConfig
 {
 public:
+  /// Constructor; to be initialized with \c fxs
+  explicit FxConfig(const FxSetup &fxs) : FxConfig(fxs.seg) {}
+
   /// Constructor; to be initialized with \c SEGMENT
+  /// Whenever feasible, prefer the other constructor with FxSetup.
   explicit FxConfig(const Segment &seg) : _seg(seg) {}
 
   /// Current setting of the 'Speed" slider (with Clock icon) -- \c SEGMENT.speed
@@ -82,6 +117,9 @@ public:
   /// Get the desired color \a x -- 'SEGCOLOR(x)'
   PxColor color(unsigned x) const { return _seg.getCurrentColor(x); }
 
+  /// DRAFT
+  uint8_t paletteIndex() const { return _seg.palette; }
+
   /// Get currently selected color palette -- \c SEGPALETTE
   const CRGBPalette16 &palette() { return _seg.getCurrentPalette(); }
 
@@ -108,15 +146,11 @@ private:
 class SegEnv
 {
 public:
-  /*
-      uint32_t step;  // custom "step" var
-      uint32_t call;  // call counter
-      uint16_t aux0;  // custom var
-      uint16_t aux1;  // custom var
-      byte     *data; // effect data pointer
-  */
+  /// Constructor; to be initialized with \c fxs
+  explicit SegEnv(const FxSetup &fxs) : _seg(fxs.seg) {}
 
   /// Constructor; to be initialized with \c SEGMENT
+  /// Whenever feasible, prefer the other constructor with FxSetup.
   explicit SegEnv(Segment &seg) : _seg(seg) {}
 
   /// Call counter (starts with 0 and is incremented by one with every frame) -- \c SEGENV.call
@@ -290,97 +324,6 @@ uint8_t addEffectRunner(WS2812FX &wled, uint8_t FX_id = EFFECT_TYPE::FX_id, cons
 
 //--------------------------------------------------------------------------------------------------
 
-/** Pixel array for rendering effects (as drawing facade for a Segment).
- * ...
- * Maybe later also class PxMatrix ?
- */
-class PxArray
-{
-  Segment &_seg;
-  const int _size;
-
-public:
-  // no copy & move - this class is intended to be passed as reference to other functions
-  PxArray(const PxArray &) = delete;
-  PxArray(PxArray &&) = delete;
-  PxArray &operator=(const PxArray &) = delete;
-  PxArray &operator=(PxArray &&) = delete;
-
-  /// Constructor; to be initialized with \c SEGMENT
-  explicit PxArray(Segment &seg) : _seg(seg), _size(seg.vLength()) {}
-
-  /// Number of pixels in this array.
-  int size() const { return _size; }
-
-  /// Set the pixel at the given \a index to the given \a color
-  void setColor(int index, PxColor color) { _seg.setPixelColor(index, color); }
-  void setColor(int index, byte r, byte g, byte b, byte w = 0) { _seg.setPixelColor(index, RGBW32(r, g, b, w)); }
-
-  /// Get color of the pixel at the given \a index
-  PxColor getColor(int index) const { return _seg.getPixelColor(index); }
-
-  /** Draw a line in the given \a color, from the given \a firstIndex to \a lastIndex pixel.
-   * Direction doesn't matter; \a lastIndex may be smaller than \a firstIndex.
-   */
-  void lineAbs(int firstIndex, int lastIndex, PxColor color);
-
-  /** Draw a line in the given \a color, with the given \a length and starting at \a startIndex.
-   * Positive values for \a length draw upward the array, negative values draw in other direction.
-   */
-  void lineRel(int startIndex, int length, PxColor color);
-
-  /// Similar to lineRel() but draws around the given \a centerIndex
-  void lineCentered(int centerIndex, int length, PxColor color) { lineRel(centerIndex - length / 2.0, length, color); }
-
-  /// Fill segment with the given \a color
-  void fill(uint32_t color) { _seg.fill(color); }
-
-  /// Fades all pixels to black using nscale8()
-  void fadeToBlackBy(uint8_t fadeBy) { _seg.fadeToBlackBy(fadeBy); }
-
-  /// Fade out function, higher \a rate = quicker fade.
-  void fade_out(uint8_t rate) { _seg.fade_out(rate); }
-
-  /** Blur segment content.
-   * @Note: For \a blur_amount > 215 this function does not work properly (creates alternating pattern)
-   */
-  void blur(uint8_t blur_amount, bool smear = false) { _seg.blur(blur_amount, smear); }
-
-  /** Convert the given \a pos into its corresponding pixel index.
-   * @param pos Pixel position (= normalized pixel index)
-   *            0.0 = first pixel (i.e. start of pixel array) --> index = \c 0
-   *            1.0 = last pixel (i.e. end of pixel array) --> index = \c size()-1
-   */
-  int n_pixelIndex(float pos) const { return round(pos * (_size - 1)); }
-
-  /** @brief Constrain the given \a index to be within the range \c 0 .. \c size()-1
-   * @retval true The given \a index was adjusted
-   * @retval false The given \a index was already within the valid range
-   */
-  bool constrainIndex(int &index) const;
-
-  /// As setColor() but with a normalized pixel position; see n_pixelIndex()
-  void n_setColor(float pos, PxColor color) { setColor(n_pixelIndex(pos), color); }
-  void n_setColor(float pos, byte r, byte g, byte b, byte w = 0) { setColor(n_pixelIndex(pos), r, g, b, w); }
-
-  /// As lineAbs() but with normalized pixel positions; see n_pixelIndex()
-  void n_lineAbs(float firstPos, float lastPos, PxColor color) { lineAbs(n_pixelIndex(firstPos), n_pixelIndex(lastPos), color); }
-
-  /// As lineRel() but with normalized pixel positions; see n_pixelIndex()
-  void n_lineRel(float startPos, float length, PxColor color) { lineRel(n_pixelIndex(startPos), n_pixelIndex(length), color); }
-
-  /// Similar to n_lineRel() but draws around the given \a centerPos point.
-  void n_lineCentered(float centerPos, float length, PxColor color) { n_lineRel(centerPos - length / 2.0, length, color); }
-
-  /// Backdoor: Get the underlying Segment.
-  Segment &getSegment() { return _seg; }
-
-  /// Convenience backdoor: access the underlying Segment's members via arrow operator.
-  Segment *operator->() { return &_seg; }
-};
-
-//--------------------------------------------------------------------------------------------------
-
 /** AudioReactive Usermod Data (as facade for the handmade data conversions).
  * This helper is a code manifestation of the textual description about how AudioReactive's generic
  * Usermod Data shall be dissected & converted.
@@ -397,7 +340,11 @@ public:
   AudioReactiveUmData &operator=(const AudioReactiveUmData &) = delete;
   AudioReactiveUmData &operator=(AudioReactiveUmData &&) = delete;
 
+  /// Constructor; to be initialized with \c fxs
+  explicit AudioReactiveUmData(FxSetup &fxs) : AudioReactiveUmData(fxs.seg) {}
+
   /// Constructor; to be initialized with \c SEGMENT
+  /// Whenever feasible, prefer the other constructor with FxSetup.
   explicit AudioReactiveUmData(Segment &seg)
   {
     if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
