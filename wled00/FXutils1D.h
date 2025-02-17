@@ -1,5 +1,6 @@
 /**
- * Some utilities for making 1D WLED effect implementations easier.
+ * Utilities for making 1D WLED effect implementations easier.
+ * @author Joachim Dick, 2025
  */
 
 #pragma once
@@ -8,7 +9,7 @@
 
 //--------------------------------------------------------------------------------------------------
 
-class PixelProxy;
+class ArrayPixel;
 
 /** Interface of a Pixel array for rendering effects.
  * ...
@@ -21,6 +22,12 @@ public:
 
   // ----- methods for manipulating a single pixel (by absolute index) -----
 
+  /** Get a proxy for the pixel at the given \a index
+   * Any kind of manipulations can be applied to the returned object, like assigning a new color to
+   * that pixel or fading that pixel.
+   */
+  ArrayPixel px(int index);
+
   /// Get color of the pixel at the given \a index
   PxColor getPixelColor(int index) const { return do_getPixelColor(index); }
 
@@ -28,75 +35,10 @@ public:
   void setPixelColor(int index, PxColor color) { do_setPixelColor(index, color); }
   void setPixelColor(int index, byte r, byte g, byte b, byte w = 0) { do_setPixelColor(index, PxColor(r, g, b, w)); }
 
-  // TBD
-  /*
-   * color add function that preserves ratio
-   * original idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
-   * speed optimisations by @dedehai
-   */
-  void addPixelColor(int index, PxColor color, bool preserveCR = true)
-  {
-    setPixelColor(index, color_add(getPixelColor(index), color, preserveCR));
-
-    // _seg.addPixelColor(index, color, preserveCR);
-    // void addPixelColor(int n, uint32_t color, bool preserveCR = true) { setPixelColor(n, color_add(getPixelColor(n), color, preserveCR)); }
-  }
-
-  // TBD
-  /*
-   * color blend function, based on FastLED blend function
-   * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
-   */
-  void blendPixelColor(int index, PxColor color, uint8_t blend)
-  {
-    // ToDo...
-    setPixelColor(index, color_blend(getPixelColor(index), color, blend));
-
-    // _seg.blendPixelColor(index, color, blend);
-    // void blendPixelColor(int n, uint32_t color, uint8_t blend) { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
-  }
-
-  // TBD
-  /*
-   * fades color toward black
-   * if using "video" method the resulting color will never become black unless it is already black
-   */
-  /// Fades pixel to black using nscale8()
-  void fadePixelToBlackBy(int index, uint8_t fadeBy)
-  {
-    setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, false));
-    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, false));
-
-    // _seg.fade???(index, fadeBy);
-
-    // FastLED - also fade_raw()
-    // nscale8( leds, num_leds, 255 - fadeBy);
-  }
-
-  // TBD
-  /*
-   * fades color toward black
-   * if using "video" method the resulting color will never become black unless it is already black
-   */
-  // name from FastLED
-  void fadePixelLightBy(int index, uint8_t fadeBy)
-  {
-    setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, true));
-    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, true));
-
-    // _seg.fadePixelColor(index, fadeBy);
-    // void fadePixelColor  (int index,              uint8_t fade) { setPixelColor  (index, color_fade(getPixelColor  (index), fade, true)); }
-    // void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) { setPixelColorXY(x, y,  color_fade(getPixelColorXY(x, y),  fade, true)); }
-
-    // FastLED - also fade_video()
-    // nscale8_video( leds, num_leds, 255 - fadeBy);
-  }
-
-  // // TODO ???
-  // // see fade_out()
-  // void fade_pixel_out(uint8_t rate);
-
   // ----- methods for manipulating a single pixel (by normalized position) -----
+
+  /// As px() but with a normalized pixel position; see toIndex()
+  ArrayPixel n_px(float pos);
 
   /// As getPixelColor() but with a normalized pixel position; see toIndex()
   PxColor n_getPixelColor(float pos) const { return getPixelColor(toIndex(pos)); }
@@ -117,14 +59,12 @@ public:
   }
   void n_setColorOpt(float pos, byte r, byte g, byte b, byte w = 0) { n_setColorOpt(pos, PxColor(r, g, b, w)); }
 
-  void n_addPixelColor(float pos, PxColor color, bool preserveCR = true) { addPixelColor(toIndex(pos), color, preserveCR); }
-  void n_blendPixelColor(float pos, PxColor color, uint8_t blend) { blendPixelColor(toIndex(pos), color, blend); }
-  void n_fadePixelToBlackBy(float pos, uint8_t fadeBy) { fadePixelToBlackBy(toIndex(pos), fadeBy); }
-  void n_fadePixelLightBy(float pos, uint8_t fadeBy) { fadePixelLightBy(toIndex(pos), fadeBy); }
-
   // ----- methods for manipulating the entire array -----
 
-  /// Fill segment with the given \a color
+  /// Get the background color of this array.
+  PxColor getBackgroundColor() const { return do_getBackgroundColor(); }
+
+  /// Fill the entire array with the given \a color
   void fill(PxColor color) { do_fill(color); }
 
   // TBD
@@ -135,10 +75,17 @@ public:
   void fadeLightBy(uint8_t fadeBy) { do_fadeLightBy(fadeBy); }
 
   // TBD
-  // Does this fade to background color???
-  /// Fade out function, higher \a rate = quicker fade.
-  void fade_out(uint8_t rate) { do_fade_out(rate); }
-  // void fadeToBG(uint8_t rate) { do_fadeToBG(rate); }
+  void fadeToBackground(uint8_t fadeBy) { fadeToColorBy(getBackgroundColor(), fadeBy); }
+
+  // TBD
+  void fadeToColorBy(PxColor color, uint8_t fadeBy) { do_fadeToColorBy(color, fadeBy); }
+
+  /** Copy all the pixels colors from the \a other array to this array's pixels.
+   * The shorter PxArray of them determines the number of copied pixels. \n
+   * TIPP: This kind of assignment is also possible with PxMatrixRow or PxMatrixColumn since these
+   * are also a PxArray by design.
+   */
+  void copyFrom(const PxArray &other);
 
   // ----- drawing lines (by absolute index) -----
 
@@ -181,115 +128,99 @@ public:
    */
   bool constrainIndex(int &index) const;
 
-  /// Use the index-operator to access a specific pixel similar as known from FastLED.
-  PixelProxy operator[](int index);
-  PixelProxy getPixel(int index);
-
-  /** Copy all the pixel colors from \a other to this array.
-   * The shorter PxArray determines the number of copied pixels. \n
-   * TIPP: This kind of assignment is also possible with PxMatrixRow or PxMatrixColumn since these
-   * are also a PxArray by design.
+  /** Use the index-operator to access a specific pixel similar as known from FastLED.
+   * This is the same as calling \c px()
    */
-  PxArray &operator=(const PxArray &other);
-
-  PxArray(const PxArray &) = delete;
-  PxArray &operator=(PxArray &&) = delete;
+  ArrayPixel operator[](int index);
 
 protected:
   explicit PxArray(int pixelCount) : _size(pixelCount) {}
-  PxArray(PxArray &&) = default;
+  ~PxArray() = default;
 
+  virtual PxColor do_getBackgroundColor() const = 0;
   virtual PxColor do_getPixelColor(int index) const = 0;
   virtual void do_setPixelColor(int index, PxColor color) = 0;
 
-  virtual void do_fill(PxColor color) { lineAbs(0, _size - 1, color); }
-  virtual void do_fadeToBlackBy(uint8_t fadeBy);
-  virtual void do_fadeLightBy(uint8_t fadeBy);
-  virtual void do_fade_out(uint8_t rate) = 0;
-  // virtual void do_fadeToBG(uint8_t rate) = 0;
+  virtual void do_fill(PxColor color) = 0;
+  virtual void do_fadeToBlackBy(uint8_t fadeBy) = 0;
+  virtual void do_fadeLightBy(uint8_t fadeBy) = 0;
+  virtual void do_fadeToColorBy(PxColor color, uint8_t fadeBy) = 0;
 
 protected:
   /// Size of the array (number of pixels).
   const int _size;
 };
 
-/** Helper class that is representing a specific pixel.
- * @note This class is rarely used directly. It is returned by PxArray's index operator to emulate
- * the widely known FastLED syntax for manipulating LED strips.
- * @see PxArray::getPixel()
+/** A proxy object that is representing a specific pixel of a PxArray.
+ * @see PxArray::px()
  * @see PxArray::operator[]
  */
-class PixelProxy
+class ArrayPixel
 {
-  friend class PxArray;
-  PixelProxy(PxArray &array, int index) : _array(array), _index(index) {}
-
-  PxArray &_array;
-  const int _index;
-
 public:
-  PixelProxy(const PixelProxy &) = delete;
-  PixelProxy(PixelProxy &&) = default;
-  PixelProxy &operator=(PixelProxy &&) = delete;
+  ArrayPixel(PxArray &parent, int arrayIndex) : index(arrayIndex), _parent(parent) {}
 
   /// Get the color of this pixel.
-  PxColor getColor() const { return _array.getPixelColor(_index); }
+  PxColor getColor() const { return _parent.getPixelColor(index); }
 
   /// Set this pixel to the given \a color
-  void setColor(PxColor color) { _array.setPixelColor(_index, color); }
+  void setColor(PxColor color) { _parent.setPixelColor(index, color); }
   void setColor(byte r, byte g, byte b, byte w = 0) { setColor(PxColor(r, g, b, w)); }
 
   // TBD
-  void addColor(PxColor color, bool preserveCR = true) { _array.addPixelColor(_index, color, preserveCR); }
+  void addColor(PxColor color, bool preserveCR = true) { _parent.setPixelColor(index, _parent.getPixelColor(index).addColor(color, preserveCR)); }
 
   // TBD
-  void blendColor(PxColor color, uint8_t blend) { _array.blendPixelColor(_index, color, blend); }
+  void blendColor(PxColor color, uint8_t blend) { _parent.setPixelColor(index, _parent.getPixelColor(index).blendColor(color, blend)); }
 
   // TBD
   /// Fades pixel to black using nscale8()
-  void fadeToBlackBy(uint8_t fadeBy) { _array.fadePixelToBlackBy(_index, fadeBy); }
+  void fadeToBlackBy(uint8_t fadeBy) { _parent.setPixelColor(index, _parent.getPixelColor(index).fadeToBlackBy(fadeBy)); }
 
   // TBD
   // name from FastLED
-  void fadeLightBy(uint8_t fadeBy) { _array.fadePixelLightBy(_index, fadeBy); }
+  void fadeLightBy(uint8_t fadeBy) { _parent.setPixelColor(index, _parent.getPixelColor(index).fadeLightBy(fadeBy)); }
+
+  // TBD
+  void fadeToColorBy(PxColor color, uint8_t fadeBy) { _parent.setPixelColor(index, _parent.getPixelColor(index).fadeToColorBy(color, fadeBy)); }
 
   /// Assign a new color to this pixel.
-  PixelProxy &operator=(PxColor color)
+  ArrayPixel &operator=(PxColor color)
   {
     setColor(color);
     return *this;
   }
 
-  /// Assign the color of the \a other pixel to this pixel.
-  PixelProxy &operator=(const PixelProxy &other)
-  {
-    setColor(other.getColor());
-    return *this;
-  }
-
   /// Get the color of this pixel implicitly.
   operator PxColor() const { return getColor(); }
+
+  /// Index of this pixel in the corresponsing PxArray.
+  int index;
+
+private:
+  PxArray &_parent;
 };
 
-inline PixelProxy PxArray::operator[](int index) { return getPixel(index); }
-inline PixelProxy PxArray::getPixel(int index) { return PixelProxy(*this, index); }
+inline ArrayPixel PxArray::operator[](int index) { return px(index); }
+inline ArrayPixel PxArray::px(int index) { return ArrayPixel(*this, index); }
+inline ArrayPixel PxArray::n_px(float pos) { return ArrayPixel(*this, toIndex(pos)); }
 
 //--------------------------------------------------------------------------------------------------
 
-/** Pixel strip for rendering effects (as drawing facade for a Segment).
+/** WLED pixel array for rendering effects (as drawing facade for a Segment).
  * @see PxArray
  */
-class PxStrip : public PxArray
+class WledPxArray : public PxArray
 {
 public:
   /// Constructor; to be initialized with \c fxs
-  explicit PxStrip(FxSetup &fxs) : PxStrip(fxs.seg) {}
+  explicit WledPxArray(FxSetup &fxs) : WledPxArray(fxs.seg) {}
 
   /// Constructor; to be initialized with \c SEGMENT
-  explicit PxStrip(Segment &seg) : PxArray(seg.vLength()), _seg(seg) {}
+  explicit WledPxArray(Segment &seg) : PxArray(seg.vLength()), _seg(seg) {}
 
-  /** Blur pixel strip content.
-   * @Note: For \a blur_amount > 215 this function does not work properly (creates alternating pattern)
+  /** Blur the pixels of the array.
+   * @note: For \a blur_amount > 215 this function does not work properly (creates alternating pattern)
    */
   void blur(uint8_t blur_amount, bool smear = false) { _seg.blur(blur_amount, smear); }
 
@@ -299,16 +230,17 @@ public:
   /// Convenience backdoor: Access the underlying Segment's members via arrow operator.
   Segment *operator->() { return &_seg; }
 
+  [[deprecated("use fadeToBackground() instead")]] void fade_out(uint8_t rate) { _seg.fade_out(rate); }
+
 private:
+  PxColor do_getBackgroundColor() const final { return _seg.getCurrentColor(1); }
   PxColor do_getPixelColor(int index) const final { return _seg.getPixelColor(index); }
   void do_setPixelColor(int index, PxColor color) final { _seg.setPixelColor(index, color.wrgb); }
 
   void do_fill(PxColor color) final { _seg.fill(color); }
-
   void do_fadeToBlackBy(uint8_t fadeBy) final { _seg.fadeToBlackBy(fadeBy); }
-
-  void do_fade_out(uint8_t rate) final { _seg.fade_out(rate); }
-  // void do_fadeToBG(uint8_t rate) final { _seg.fade_out(rate); }
+  void do_fadeLightBy(uint8_t fadeBy) final { PxArray::do_fadeLightBy(fadeBy); }
+  void do_fadeToColorBy(PxColor color, uint8_t fadeBy) final { PxArray::do_fadeToColorBy(color, fadeBy); }
 
 private:
   Segment &_seg;

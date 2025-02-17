@@ -49,7 +49,7 @@ bool PxArray::constrainIndex(int &index) const
   return false;
 }
 
-PxArray &PxArray::operator=(const PxArray &other)
+void PxArray::copyFrom(const PxArray &other)
 {
   if (this != &other)
   {
@@ -59,7 +59,11 @@ PxArray &PxArray::operator=(const PxArray &other)
       setPixelColor(i, other.getPixelColor(i));
     }
   }
-  return *this;
+}
+
+void PxArray::do_fill(PxColor color)
+{
+  lineAbs(0, _size - 1, color);
 }
 
 void PxArray::do_fadeToBlackBy(uint8_t fadeBy)
@@ -68,7 +72,7 @@ void PxArray::do_fadeToBlackBy(uint8_t fadeBy)
   {
     for (int i = 0; i < _size; ++i)
     {
-      fadePixelToBlackBy(i, fadeBy);
+      setPixelColor(i, getPixelColor(i).fadeToBlackBy(fadeBy));
     }
   }
 }
@@ -79,7 +83,18 @@ void PxArray::do_fadeLightBy(uint8_t fadeBy)
   {
     for (int i = 0; i < _size; ++i)
     {
-      fadePixelLightBy(i, fadeBy);
+      setPixelColor(i, getPixelColor(i).fadeLightBy(fadeBy));
+    }
+  }
+}
+
+void PxArray::do_fadeToColorBy(const PxColor color, uint8_t fadeBy)
+{
+  if (fadeBy)
+  {
+    for (int i = 0; i < _size; ++i)
+    {
+      setPixelColor(i, getPixelColor(i).fadeToColorBy(color, fadeBy));
     }
   }
 }

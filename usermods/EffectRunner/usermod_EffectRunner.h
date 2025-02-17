@@ -47,12 +47,12 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
-/// Example for the PxStrip and FxConfig helper classes.
+/// Example for the WledPxArray and FxConfig helper classes.
 uint16_t mode_PxStrip_example()
 {
   static int index = 0;
 
-  PxStrip leds(SEGMENT);
+  WledPxArray leds(SEGMENT);
   FxConfig config(leds.getSegment());
 
   leds.fadeToBlackBy(128 - (config.intensity() / 2));
@@ -71,7 +71,7 @@ uint16_t mode_PxStrip_example()
 
   return FRAMETIME;
 }
-static const char _data_FX_mode_PxStrip[] PROGMEM = "A PxStrip@,Tail";
+static const char _data_FX_mode_PxStrip[] PROGMEM = "A PxArray@,Tail";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ const char FxFallback::FX_data[] PROGMEM = "A Fallback@";
 /// Yet another Larson Scanner.
 class FxLarson : public EffectRunner
 {
-  PxStrip pixels;
+  WledPxArray pixels;
 
 public:
   static const EffectID FX_id = AutoSelectID;
@@ -109,7 +109,15 @@ private:
 
   uint16_t showEffect(uint32_t now) override
   {
-    if (!config.check2())
+    if (config.check2())
+    {
+      // overlay --> no fading
+    }
+    else if (config.check1())
+    {
+      pixels.fadeToBackground(255 - (config.intensity() / 8));
+    }
+    else
     {
       pixels.fadeToBlackBy(128 - (config.intensity() / 2));
     }
@@ -124,7 +132,7 @@ private:
 private:
   uint16_t &_lastPos; // this is a reference (!) which is bound to segment's custom var 'aux0'
 };
-const char FxLarson::FX_data[] PROGMEM = "A Larson@Speed,Tail,,,,,Overlay;;;;sx=60,ix=160";
+const char FxLarson::FX_data[] PROGMEM = "A Larson@Speed,Tail,,,,fade to Bg,Overlay;!,!;;;sx=60,ix=32,o1=1";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -141,7 +149,7 @@ class FxSoundmeter : public EffectRunner
     float peakPosRaw = 0.0;
   };
 
-  PxStrip pixels;
+  WledPxArray pixels;
   AudioReactiveUmData audioData;
 
 public:
@@ -199,7 +207,7 @@ const char FxSoundmeter::FX_data[] PROGMEM = "A Soundmeter@,Fading;Smth,Raw,Peak
 /// Inline 5-band graphic equalizer.
 class FxInlineEq : public EffectRunner
 {
-  PxStrip pixels;
+  WledPxArray pixels;
   AudioReactiveUmData audioData;
 
 public:
@@ -242,7 +250,7 @@ const char FxInlineEq::FX_data[] PROGMEM = "A Inline EQ@,Fading;!;;1f;ix=96";
 /// Inline Equalizer 2. Doesn't turn out good - too twitchy. :-(
 class FxInlineEq2 : public EffectRunner
 {
-  PxStrip pixels;
+  WledPxArray pixels;
   AudioReactiveUmData audioData;
 
 public:
@@ -299,9 +307,9 @@ const char FxInlineEq2::FX_data[] PROGMEM = "A Inline EQ 2@;!;;1f";
 class ColorCloudsBase : public EffectRunner
 {
 protected:
-  PxStrip pixels;
+  WledPxArray leds;
 
-  explicit ColorCloudsBase(FxSetup &fxs) : EffectRunner(fxs), pixels(fxs) { setNormal(); }
+  explicit ColorCloudsBase(FxSetup &fxs) : EffectRunner(fxs), leds(fxs) { setNormal(); }
 
   uint16_t showClouds(uint32_t currentMillis)
   {
@@ -331,7 +339,7 @@ protected:
         pixel = CRGB::Black;
       }
 
-      seg.setPixelColor(i, pixel);
+      leds[i] = pixel;
     }
 
     return 0;
@@ -383,28 +391,7 @@ public:
   static const EffectID FX_id = AutoSelectID;
   static const char FX_data[];
 
-  explicit FxColorClouds(FxSetup &fxs) : ColorCloudsBase(fxs)
-  {
-    // hueSpeed = 255;
-    // hueSpeed = 128;
-    // hueSpeed = 3;
-    // hueSpeed = 0;
-
-    // hueSqueeze = 255;
-    // hueSqueeze = 128;
-    // hueSqueeze = 25;
-    // hueSqueeze = 0;
-
-    // volSpeed = 255;
-    // volSpeed = 128;
-    // volSpeed = 25;
-    // volSpeed = 0;
-
-    // volSqueeze = 255;
-    // volSqueeze = 128;
-    // volSqueeze = 45;
-    // volSqueeze = 0;
-  }
+  explicit FxColorClouds(FxSetup &fxs) : ColorCloudsBase(fxs) {}
 
 private:
   uint16_t showEffect(uint32_t now) override

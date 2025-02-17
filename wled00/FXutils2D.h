@@ -1,5 +1,6 @@
 /**
- * Some utilities for making 2D WLED effect implementations easier.
+ * Utilities for making 2D WLED effect implementations easier.
+ * @author Joachim Dick, 2025
  */
 
 #pragma once
@@ -7,6 +8,8 @@
 #include "FXutils1D.h"
 
 //--------------------------------------------------------------------------------------------------
+
+struct FPoint;
 
 /// Template class for 2D pixel coordinates.
 template <typename T>
@@ -18,62 +21,81 @@ struct TPoint
   TPoint() = default;
   TPoint(T xx, T yy) : x(xx), y(yy) {}
 
-  TPoint &operator+=(const TPoint &o)
+  TPoint &operator+=(const TPoint &other)
   {
-    x += o.x;
-    y += o.y;
+    x += other.x;
+    y += other.y;
     return *this;
   }
 
-  TPoint &operator-=(const TPoint &o)
+  TPoint &operator-=(const TPoint &other)
   {
-    x -= o.x;
-    y -= o.y;
+    x -= other.x;
+    y -= other.y;
     return *this;
   }
 
-  TPoint &operator+=(T v)
+  TPoint &operator+=(T value)
   {
-    x += v;
-    y += v;
+    x += value;
+    y += value;
     return *this;
   }
 
-  TPoint &operator-=(T v)
+  TPoint &operator-=(T value)
   {
-    x -= v;
-    y -= v;
+    x -= value;
+    y -= value;
     return *this;
   }
 
-  TPoint &operator*=(T v)
+  TPoint &operator*=(T value)
   {
-    x *= v;
-    y *= v;
+    x *= value;
+    y *= value;
     return *this;
   }
 
-  TPoint &operator/=(T v)
+  TPoint &operator/=(T value)
   {
-    x /= v;
-    y /= v;
+    x /= value;
+    y /= value;
     return *this;
   }
 };
 
-/** A 2D point, representing a pixel position with index based coordinates.
- * The \c x and \c y members represent the absolute pixel positions of the PxMatrix.
+/** A 2D point, representing an absolute pixel position (with integer coordinates).
+ * The \c x and \c y members represent an absolute pixel position in the PxMatrix.
  */
-using IPoint = TPoint<int>;
+struct APoint : public TPoint<int>
+{
+  using TPoint::TPoint;
 
-/** A 2D point, representing a pixel position with floating-point based coordinates.
+  FPoint toFPoint() const;
+};
+
+/** A 2D point, representing an absolute pixel position (with fractional coordinates).
+ * Similar to APoint, but with higher accuracy due to fractional indices. The \c x and \c y members
+ * are like the ones from APoint, just multiplied with 256. So for example, \c x = 1088 represents
+ * a pixel's fractional X position 4.25 (1088 = 1024 + 64 = 4 * 256 + 0.25 * 256).
+ */
+struct FPoint : public TPoint<int32_t>
+{
+  using TPoint::TPoint;
+
+  APoint toAPoint() const { return APoint{(x + 128) / 256, (y + 128) / 256}; }
+};
+
+inline FPoint APoint::toFPoint() const { return FPoint{int32_t(x) * 256, int32_t(y) * 256}; }
+
+/** A 2D point, representing a normalized pixel position (with floating-point coordinates).
  * The pixel representation of the \c x and \c y members depend on the currently selected mapping
  * policy of the PxMatrix.
  * @see PxMatrix::setMappingNormalized()
  * @see PxMatrix::setMappingProportional()
  * @see PxMatrix::setMappingAbsolute()
  */
-using FPoint = TPoint<float>;
+using NPoint = TPoint<float>;
 
 class PxMatrixRow;
 class PxMatrixColumn;
@@ -86,23 +108,14 @@ class PxMatrixColumn;
 class PxMatrix
 {
 public:
-  /// Constructor; to be initialized with \c fxs
-  explicit PxMatrix(FxSetup &fxs) : PxMatrix(fxs.seg) {}
-
-  /// Constructor; to be initialized with \c SEGMENT
-  explicit PxMatrix(Segment &seg) : _seg(seg), _sizeX(seg.vWidth()), _sizeY(seg.vHeight())
-  {
-    setMappingNormalized();
-  }
-
   /// Absolute width of the matrix (in pixels).
   int sizeX() const { return _sizeX; }
 
   /// Absolute height of the matrix (in pixels).
   int sizeY() const { return _sizeY; }
 
-  float f_sizeX() const { /* implement me */ return 0; }
-  float f_sizeY() const { /* implement me */ return 0; }
+  float n_sizeX() const { /* implement me */ return 0; }
+  float n_sizeY() const { /* implement me */ return 0; }
 
   /// Number of rows of the matrix.
   int rows() const { return sizeY(); }
@@ -112,11 +125,11 @@ public:
 
   // ----- methods for manipulating a single pixel (by absolute index) -----
 
-  PxColor getPixelColor(int x, int y) const { return _seg.getPixelColorXY(x, y); }
-  PxColor getPixelColor(IPoint point) const { return getPixelColor(point.x, point.y); }
+  PxColor getPixelColor(int x, int y) const { return do_getPixelColor(x, y); }
+  PxColor getPixelColor(APoint point) const { return getPixelColor(point.x, point.y); }
 
-  void setPixelColor(int x, int y, PxColor color) { _seg.setPixelColorXY(x, y, color.wrgb); }
-  void setPixelColor(IPoint point, PxColor color) { setPixelColor(point.x, point.y, color); }
+  void setPixelColor(int x, int y, PxColor color) { do_setPixelColor(x, y, color.wrgb); }
+  void setPixelColor(APoint point, PxColor color) { setPixelColor(point.x, point.y, color); }
 
   // // TODO?
   // // https://www.reddit.com/r/FastLED/comments/h7s96r/subpixel_positioning_wu_pixels/
@@ -125,18 +138,31 @@ public:
 
   // ----- methods for manipulating a single pixel (by normalized position) -----
 
-  PxColor f_getPixelColor(float x, float y) { return getPixelColor(toIPoint(FPoint(x, y))); }
-  PxColor f_getPixelColor(FPoint point) { return getPixelColor(toIPoint(point)); }
+  PxColor n_getPixelColor(float x, float y) { return getPixelColor(toIPoint(NPoint(x, y))); }
+  PxColor n_getPixelColor(NPoint point) { return getPixelColor(toIPoint(point)); }
 
-  void f_setPixelColor(FPoint point, PxColor color) { setPixelColor(toIPoint(point), color); }
+  void n_setPixelColor(NPoint point, PxColor color) { setPixelColor(toIPoint(point), color); }
 
   // ----- methods for manipulating the entire matrix -----
 
-  // 2D blurring, can be asymmetrical
-  void blur(uint8_t blur_amount_x, uint8_t blur_amount_y, bool smear = false)
-  {
-    _seg.blur2D(blur_amount_x, blur_amount_y, smear);
-  }
+  /// Get the background color of this matrix.
+  PxColor getBackgroundColor() const { return do_getBackgroundColor(); }
+
+  /// Fill segment with the given \a color
+  void fill(PxColor color) { do_fill(color); }
+
+  // TBD
+  /// Fades all pixels to black using nscale8()
+  void fadeToBlackBy(uint8_t fadeBy) { do_fadeToBlackBy(fadeBy); }
+
+  // TBD
+  void fadeLightBy(uint8_t fadeBy) { do_fadeLightBy(fadeBy); }
+
+  // TBD
+  void fadeToBackground(uint8_t fadeBy) { fadeToColorBy(fadeBy, getBackgroundColor()); }
+
+  // TBD
+  void fadeToColorBy(PxColor color, uint8_t fadeBy) { do_fadeToColorBy(color, fadeBy); }
 
   // ----- other stuff -----
 
@@ -160,7 +186,7 @@ public:
   void setMappingProportional() { /* implement me */ }
 
   /** TBD
-   * This setting makes FPoint behave like IPoint, just with the better floating-point accuracy.
+   * This setting makes NPoint behave like APoint, just with the better floating-point accuracy.
    * A point's \c x and \c y coordinate represent the absolute (index-based) pixel position in the
    * matrix.
    */
@@ -170,10 +196,98 @@ public:
   PxMatrixColumn getColumn(int columnIndex);
   PxMatrixColumn operator[](int columnIndex);
 
-  IPoint toIPoint(const FPoint &point) const { /* implement me */ return {0, 0}; }
+  APoint toIPoint(const NPoint &point) const { /* implement me */ return {0, 0}; }
 
-  bool constrainPoint(IPoint &point) const { /* implement me */ return false; }
-  bool constrainPoint(FPoint &point) const { /* implement me */ return false; }
+  bool constrainPoint(APoint &point) const { /* implement me */ return false; }
+  bool constrainPoint(NPoint &point) const { /* implement me */ return false; }
+
+protected:
+  explicit PxMatrix(int sizeX, int sizeY) : _sizeX(sizeX), _sizeY(sizeY) { setMappingNormalized(); }
+
+  virtual PxColor do_getBackgroundColor() const = 0;
+  virtual PxColor do_getPixelColor(int x, int y) const = 0;
+  virtual void do_setPixelColor(int x, int y, PxColor color) = 0;
+
+  virtual void do_fill(PxColor color) = 0;
+  virtual void do_fadeToBlackBy(uint8_t fadeBy) = 0;
+  virtual void do_fadeLightBy(uint8_t fadeBy) = 0;
+  virtual void do_fadeToColorBy(PxColor color, uint8_t fadeBy) = 0;
+
+  const int _sizeX;
+  const int _sizeY;
+};
+
+/// One single row of a PxMatrix. Can be used like a PxArray.
+class PxMatrixRow : public PxArray
+{
+public:
+  PxMatrixRow(PxMatrix &parent, int matrixSizeX, int matrixIndexY) : PxArray(matrixSizeX), indexY(matrixIndexY), _parent(parent) {}
+
+  int indexY;
+
+private:
+  PxColor do_getBackgroundColor() const final { return _parent.getBackgroundColor(); }
+  PxColor do_getPixelColor(int index) const final { return _parent.getPixelColor(index, indexY); }
+  void do_setPixelColor(int index, PxColor color) final { _parent.setPixelColor(index, indexY, color.wrgb); }
+
+  void do_fill(PxColor color) final { PxArray::do_fill(color); }
+  void do_fadeToBlackBy(uint8_t fadeBy) final { PxArray::do_fadeToBlackBy(fadeBy); }
+  void do_fadeLightBy(uint8_t fadeBy) final { PxArray::do_fadeLightBy(fadeBy); }
+  void do_fadeToColorBy(PxColor color, uint8_t fadeBy) final { PxArray::do_fadeToColorBy(color, fadeBy); }
+
+private:
+  PxMatrix &_parent;
+};
+
+inline PxMatrixRow PxMatrix::getRow(int rowIndex) { return PxMatrixRow(*this, _sizeX, rowIndex); }
+
+/// One single column of a PxMatrix. Can be used like a PxArray.
+class PxMatrixColumn : public PxArray
+{
+public:
+  PxMatrixColumn(PxMatrix &parent, int matrixIndexX, int matrixSizeY) : PxArray(matrixSizeY), indexX(matrixIndexX), _parent(parent) {}
+
+  int indexX;
+
+private:
+  PxColor do_getBackgroundColor() const final { return _parent.getBackgroundColor(); }
+  PxColor do_getPixelColor(int index) const final { return _parent.getPixelColor(indexX, index); }
+  void do_setPixelColor(int index, PxColor color) final { _parent.setPixelColor(indexX, index, color.wrgb); }
+
+  void do_fill(PxColor color) final { PxArray::do_fill(color); }
+  void do_fadeToBlackBy(uint8_t fadeBy) final { PxArray::do_fadeToBlackBy(fadeBy); }
+  void do_fadeLightBy(uint8_t fadeBy) final { PxArray::do_fadeLightBy(fadeBy); }
+  void do_fadeToColorBy(PxColor color, uint8_t fadeBy) final { PxArray::do_fadeToColorBy(color, fadeBy); }
+
+private:
+  PxMatrix &_parent;
+};
+
+inline PxMatrixColumn PxMatrix::getColumn(int columnIndex) { return PxMatrixColumn(*this, columnIndex, _sizeY); }
+inline PxMatrixColumn PxMatrix::operator[](int columnIndex) { return getColumn(columnIndex); }
+
+//--------------------------------------------------------------------------------------------------
+
+inline void drawBox(PxMatrix &matrix, const NPoint &p1, const NPoint &p2, PxColor color) { /* implement me */ }
+inline void drawBoxFilled(PxMatrix &matrix, const NPoint &p1, const NPoint &p2, PxColor color) { /* implement me */ }
+
+//--------------------------------------------------------------------------------------------------
+
+/** TBD
+ * ...
+ */
+class WledPxMatrix
+    : public PxMatrix
+{
+public:
+  /// Constructor; to be initialized with \c fxs
+  explicit WledPxMatrix(FxSetup &fxs) : WledPxMatrix(fxs.seg) {}
+
+  /// Constructor; to be initialized with \c SEGMENT
+  explicit WledPxMatrix(Segment &seg) : PxMatrix(seg.vWidth(), seg.vHeight()), _seg(seg) {}
+
+  /// 2D-blur the pixels of the matrix (can be asymmetrical).
+  void blur(uint8_t blurAmountX, uint8_t blurAmountY, bool smear = false) { _seg.blur2D(blurAmountX, blurAmountY, smear); }
 
   /// Backdoor: Get the underlying Segment.
   Segment &getSegment() { return _seg; }
@@ -181,53 +295,20 @@ public:
   /// Convenience backdoor: Access the underlying Segment's members via arrow operator.
   Segment *operator->() { return &_seg; }
 
+  [[deprecated("use fadeToBackground() instead")]] void fade_out(uint8_t rate) { _seg.fade_out(rate); }
+
 private:
-  Segment &_seg;
-  const int _sizeX;
-  const int _sizeY;
-};
+  PxColor do_getBackgroundColor() const final { return _seg.getCurrentColor(1); }
+  PxColor do_getPixelColor(int x, int y) const final { return _seg.getPixelColorXY(x, y); }
+  void do_setPixelColor(int x, int y, PxColor color) final { _seg.setPixelColorXY(x, y, color.wrgb); }
 
-/// One single row of a PxMatrix. Can be used as a PxArray.
-class PxMatrixRow : public PxArray
-{
-  friend class PxMatrix;
-  PxMatrixRow(Segment &seg, int size, int y) : PxArray(size), _seg(seg), _y(y) {}
-
-  PxColor do_getPixelColor(int index) const final { return _seg.getPixelColorXY(index, _y); }
-
-  void do_setPixelColor(int index, PxColor color) final { _seg.setPixelColorXY(index, _y, color.wrgb); }
-
-  void do_fade_out(uint8_t rate) final { /* implement me */ }
+  void do_fill(PxColor color) final { _seg.fill(color); }
+  void do_fadeToBlackBy(uint8_t fadeBy) final { _seg.fadeToBlackBy(fadeBy); }
+  void do_fadeLightBy(uint8_t fadeBy) final { PxMatrix::do_fadeLightBy(fadeBy); }
+  void do_fadeToColorBy(PxColor color, uint8_t fadeBy) final { PxMatrix::do_fadeToColorBy(color, fadeBy); }
 
 private:
   Segment &_seg;
-  const int _y;
 };
-
-inline PxMatrixRow PxMatrix::getRow(int rowIndex) { return PxMatrixRow(_seg, _sizeX, rowIndex); }
-
-class PxMatrixColumn : public PxArray
-{
-  friend class PxMatrix;
-  PxMatrixColumn(Segment &seg, int x, int size) : PxArray(size), _seg(seg), _x(x) {}
-
-  PxColor do_getPixelColor(int index) const final { return _seg.getPixelColorXY(_x, index); }
-
-  void do_setPixelColor(int index, PxColor color) final { _seg.setPixelColorXY(_x, index, color.wrgb); }
-
-  void do_fade_out(uint8_t rate) final { /* implement me */ }
-
-private:
-  Segment &_seg;
-  const int _x;
-};
-
-inline PxMatrixColumn PxMatrix::getColumn(int columnIndex) { return PxMatrixColumn(_seg, columnIndex, _sizeY); }
-inline PxMatrixColumn PxMatrix::operator[](int columnIndex) { return getColumn(columnIndex); }
-
-//--------------------------------------------------------------------------------------------------
-
-inline void drawBox(PxMatrix &matrix, const FPoint &p1, const FPoint &p2, PxColor color) { /* implement me */ }
-inline void drawBoxFilled(PxMatrix &matrix, const FPoint &p1, const FPoint &p2, PxColor color) { /* implement me */ }
 
 //--------------------------------------------------------------------------------------------------

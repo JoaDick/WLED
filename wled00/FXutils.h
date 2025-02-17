@@ -1,5 +1,32 @@
 /**
- * Some utilities for making WLED effect implementations easier.
+ * Utilities for making WLED effect implementations easier.
+ *
+ * All of these classes are very lightweight abstractions on top of WLED's API, mainly for the
+ * \c Segment class to simplify its complex interface. Most of these classes contain not even
+ * a handful of integers and references. The majority of their methods are inline oneliners to give
+ * the compiler maximum opportunity for optimizations, including even de-virtualization.
+ *
+ * The functionality of the \c Segment class is segregated into separated and well documented
+ * interfaces, depending on the particular purpose:
+ * - \c FxConfig - effect configuration settings from the UI, like speed, intensity, ...
+ * - \c SegEnv - for accessing effect internal data, which shall be preserved between frames.
+ * - \c AudioReactiveUmData - read the AudioReactive Usermod output without complicated typecasts.
+ *
+ * Plus some additional support classes:
+ * - \c PxColor - as general abstraction for manipulating the color of an LED in many ways.
+ * - \c EffectRunner - as base class for implementing class based, object-oriented WLED effects.
+ * - \c FxSetup - internal structure for initializing some of the other helper classes.
+ *
+ * And finally the good stuff for drawing the effects:
+ * - \c PxArray & related methods - generic interface for making 1D effects.
+ * - \c ArrayPixel - a proxy object for manipulating a specific pixel of a \c PxArray
+ * - \c WledPxArray - to access WLED's \c Segment class through the \c PxArray interface.
+ * - \c PxMatrix & related methods - generic interface for making 2D effects.
+ * - \c PxMatrixRow - to access a specific row of a \c PxMatrix through the \c PxArray interface.
+ * - \c PxMatrixColumn - to access a specific column of a \c PxMatrix through the \c PxArray interface.
+ * - \c WledPxMatrix - to access WLED's \c Segment class through the \c PxMatrix interface.
+ *
+ * @author Joachim Dick, 2025
  */
 
 #pragma once
@@ -33,14 +60,96 @@ struct PxColor
   PxColor(CRGB c) : wrgb(c) {}
   PxColor(CHSV c) : wrgb(CRGB(c)) {}
 
-  operator uint32_t() const { return wrgb; }
-  operator CRGB() const { return wrgb; }
-
   /// The pixel's 32 bit color value (white - red - green - blue).
   uint32_t wrgb;
 
+  operator uint32_t() const { return wrgb; }
+  operator CRGB() const { return wrgb; }
+
+  // TBD
+  /*
+   * color add function that preserves ratio
+   * original idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
+   * speed optimisations by @dedehai
+   */
+  PxColor addColor(PxColor color, bool preserveCR = true)
+  {
+    wrgb = color_add(wrgb, color, preserveCR);
+    return *this;
+
+    // setPixelColor(index, color_add(getPixelColor(index), color, preserveCR));
+
+    // _seg.addPixelColor(index, color, preserveCR);
+    // void addPixelColor(int n, uint32_t color, bool preserveCR = true) { setPixelColor(n, color_add(getPixelColor(n), color, preserveCR)); }
+  }
+
+  // TBD
+  /*
+   * color blend function, based on FastLED blend function
+   * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
+   */
+  PxColor blendColor(PxColor color, uint8_t blend)
+  {
+    wrgb = color_blend(wrgb, color, blend);
+    return *this;
+
+    // ToDo...
+    // setPixelColor(index, color_blend(getPixelColor(index), color, blend));
+
+    // _seg.blendPixelColor(index, color, blend);
+    // void blendPixelColor(int n, uint32_t color, uint8_t blend) { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
+  }
+
+  // TBD
+  /*
+   * fades color toward black
+   * if using "video" method the resulting color will never become black unless it is already black
+   */
+  /// Fades pixel to black using nscale8()
+  PxColor fadeToBlackBy(uint8_t fadeBy)
+  {
+    wrgb = color_fade(wrgb, 255 - fadeBy, false);
+    return *this;
+
+    // setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, false));
+    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, false));
+
+    // _seg.fade???(index, fadeBy);
+
+    // FastLED - also fade_raw()
+    // nscale8( leds, num_leds, 255 - fadeBy);
+  }
+
+  // TBD
+  /*
+   * fades color toward black
+   * if using "video" method the resulting color will never become black unless it is already black
+   */
+  // name from FastLED
+  PxColor fadeLightBy(uint8_t fadeBy)
+  {
+    wrgb = color_fade(wrgb, 255 - fadeBy, true);
+    return *this;
+
+    // setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, true));
+    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, true));
+
+    // _seg.fadePixelColor(index, fadeBy);
+    // void fadePixelColor  (int index,              uint8_t fade) { setPixelColor  (index, color_fade(getPixelColor  (index), fade, true)); }
+    // void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) { setPixelColorXY(x, y,  color_fade(getPixelColorXY(x, y),  fade, true)); }
+
+    // FastLED - also fade_video()
+    // nscale8_video( leds, num_leds, 255 - fadeBy);
+  }
+
+  // TBD
+  // fade out function, higher rate = quicker fade
+  // Ported fading algorithm from Segment::fade_out()
+  PxColor fadeToColorBy(PxColor color, uint8_t fadeBy);
+
   /** Put more emphasis on the red'ish colors.
    * Can be used for the \c hue parameter of a \c CHSV color.
+   * @note This is a static method which does \e not manipulate the color of this PxColor instance!
    */
   static uint8_t redShift(uint8_t hue)
   {
@@ -53,6 +162,9 @@ struct PxColor
     return *this;
   }
 };
+
+inline bool operator==(PxColor c1, PxColor c2) { return c1.wrgb == c2.wrgb; }
+inline bool operator!=(PxColor c1, PxColor c2) { return !(c1 == c2); }
 
 /** Internal setup data for the effects.
  * @note Not intended to be used by the effect implementations (because it's likely to be changed).
