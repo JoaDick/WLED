@@ -2,7 +2,7 @@
  * Utilities for making WLED effect implementations easier.
  *
  * All of these classes are very lightweight abstractions on top of WLED's API, mainly for the
- * \c Segment class to simplify its complex interface. Most of these classes contain not even
+ * \c Segment class to simplify its overwhelming interface. Most of these classes contain not even
  * a handful of integers and references. The majority of their methods are inline oneliners to give
  * the compiler maximum opportunity for optimizations, including even de-virtualization.
  *
@@ -19,7 +19,7 @@
  *
  * And finally the good stuff for drawing the effects:
  * - \c PxArray & related methods - generic interface for making 1D effects.
- * - \c ArrayPixel - a proxy object for manipulating a specific pixel of a \c PxArray
+ * - \c ArrayPixelProxy - a proxy object for manipulating a specific pixel of a \c PxArray
  * - \c WledPxArray - to access WLED's \c Segment class through the \c PxArray interface.
  * - \c PxMatrix & related methods - generic interface for making 2D effects.
  * - \c PxMatrixRow - to access a specific row of a \c PxMatrix through the \c PxArray interface.
@@ -34,7 +34,9 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
-#include <array>
+#include "FXutilsCore.h"
+#include "FXutils1D.h"
+#include "FXutils2D.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -43,128 +45,6 @@ using EffectID = std::uint8_t;
 
 /// Special Effect-ID value that lets WLED decide which ID to use eventually for that effect.
 constexpr EffectID AutoSelectID = 255;
-
-/** Generic pixel color.
- * Supports implicit conversion from \c uint32_t (WW-RR-GG-BB) and FastLED's \c CRGB & \c CHSV
- * as well as implicit conversion to \c uint32_t and \c CRGB
- */
-struct PxColor
-{
-  /// Default constructor - leaves the color uninitialized!
-  PxColor() = default;
-
-  /// Create from discrete R-G-B (-W) portions.
-  PxColor(byte r, byte g, byte b, byte w = 0) : wrgb(RGBW32(r, g, b, w)) {}
-
-  PxColor(uint32_t c) : wrgb(c) {}
-  PxColor(CRGB c) : wrgb(c) {}
-  PxColor(CHSV c) : wrgb(CRGB(c)) {}
-
-  /// The pixel's 32 bit color value (white - red - green - blue).
-  uint32_t wrgb;
-
-  operator uint32_t() const { return wrgb; }
-  operator CRGB() const { return wrgb; }
-
-  // TBD
-  /*
-   * color add function that preserves ratio
-   * original idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
-   * speed optimisations by @dedehai
-   */
-  PxColor addColor(PxColor color, bool preserveCR = true)
-  {
-    wrgb = color_add(wrgb, color, preserveCR);
-    return *this;
-
-    // setPixelColor(index, color_add(getPixelColor(index), color, preserveCR));
-
-    // _seg.addPixelColor(index, color, preserveCR);
-    // void addPixelColor(int n, uint32_t color, bool preserveCR = true) { setPixelColor(n, color_add(getPixelColor(n), color, preserveCR)); }
-  }
-
-  // TBD
-  /*
-   * color blend function, based on FastLED blend function
-   * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
-   */
-  PxColor blendColor(PxColor color, uint8_t blend)
-  {
-    wrgb = color_blend(wrgb, color, blend);
-    return *this;
-
-    // ToDo...
-    // setPixelColor(index, color_blend(getPixelColor(index), color, blend));
-
-    // _seg.blendPixelColor(index, color, blend);
-    // void blendPixelColor(int n, uint32_t color, uint8_t blend) { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
-  }
-
-  // TBD
-  /*
-   * fades color toward black
-   * if using "video" method the resulting color will never become black unless it is already black
-   */
-  /// Fades pixel to black using nscale8()
-  PxColor fadeToBlackBy(uint8_t fadeBy)
-  {
-    wrgb = color_fade(wrgb, 255 - fadeBy, false);
-    return *this;
-
-    // setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, false));
-    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, false));
-
-    // _seg.fade???(index, fadeBy);
-
-    // FastLED - also fade_raw()
-    // nscale8( leds, num_leds, 255 - fadeBy);
-  }
-
-  // TBD
-  /*
-   * fades color toward black
-   * if using "video" method the resulting color will never become black unless it is already black
-   */
-  // name from FastLED
-  PxColor fadeLightBy(uint8_t fadeBy)
-  {
-    wrgb = color_fade(wrgb, 255 - fadeBy, true);
-    return *this;
-
-    // setPixelColor(index, color_fade(getPixelColor(index), 255 - fadeBy, true));
-    // setPixelColor(index, color_fade(getPixelColor(index), fadeBy, true));
-
-    // _seg.fadePixelColor(index, fadeBy);
-    // void fadePixelColor  (int index,              uint8_t fade) { setPixelColor  (index, color_fade(getPixelColor  (index), fade, true)); }
-    // void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) { setPixelColorXY(x, y,  color_fade(getPixelColorXY(x, y),  fade, true)); }
-
-    // FastLED - also fade_video()
-    // nscale8_video( leds, num_leds, 255 - fadeBy);
-  }
-
-  // TBD
-  // fade out function, higher rate = quicker fade
-  // Ported fading algorithm from Segment::fade_out()
-  PxColor fadeToColorBy(PxColor color, uint8_t fadeBy);
-
-  /** Put more emphasis on the red'ish colors.
-   * Can be used for the \c hue parameter of a \c CHSV color.
-   * @note This is a static method which does \e not manipulate the color of this PxColor instance!
-   */
-  static uint8_t redShift(uint8_t hue)
-  {
-    return cos8(128 + hue / 2);
-  }
-
-  PxColor &operator=(PxColor other)
-  {
-    wrgb = other.wrgb;
-    return *this;
-  }
-};
-
-inline bool operator==(PxColor c1, PxColor c2) { return c1.wrgb == c2.wrgb; }
-inline bool operator!=(PxColor c1, PxColor c2) { return !(c1 == c2); }
 
 /** Internal setup data for the effects.
  * @note Not intended to be used by the effect implementations (because it's likely to be changed).
@@ -436,6 +316,76 @@ uint8_t addEffectRunner(WS2812FX &wled, uint8_t FX_id = EFFECT_TYPE::FX_id, cons
 
 //--------------------------------------------------------------------------------------------------
 
+/** WLED pixel array for rendering effects (as drawing facade for a Segment).
+ * @see PxArray
+ */
+class WledPxArray final : public PxArray
+{
+public:
+  /// Constructor; to be initialized with \c fxs
+  explicit WledPxArray(FxSetup &fxs) : WledPxArray(fxs.seg) {}
+
+  /// Constructor; to be initialized with \c SEGMENT
+  explicit WledPxArray(Segment &seg) : PxArray(seg.vLength()), _seg(seg) {}
+
+  /** Blur the pixels of the array.
+   * @note: For \a blur_amount > 215 this function does not work properly (creates alternating pattern)
+   */
+  void blur(uint8_t blur_amount, bool smear = false) { _seg.blur(blur_amount, smear); }
+
+  /// Backdoor: Get the underlying Segment.
+  Segment &getSegment() { return _seg; }
+
+  /// Convenience backdoor: Access the underlying Segment's members via arrow operator.
+  Segment *operator->() { return &_seg; }
+
+  [[deprecated("use fadeToBackground() instead")]] void fade_out(uint8_t rate) { _seg.fade_out(rate); }
+
+private:
+  PxColor do_getBackgroundColor() const { return _seg.getCurrentColor(1); }
+  PxColor do_getPixelColor(AIndex pos) const { return _seg.getPixelColor(pos); }
+  void do_setPixelColor(AIndex pos, PxColor color) { _seg.setPixelColor(pos, color.wrgb); }
+
+private:
+  Segment &_seg;
+};
+
+//--------------------------------------------------------------------------------------------------
+
+/** TBD
+ * ...
+ */
+class WledPxMatrix final : public PxMatrix
+{
+public:
+  /// Constructor; to be initialized with \c fxs
+  explicit WledPxMatrix(FxSetup &fxs) : WledPxMatrix(fxs.seg) {}
+
+  /// Constructor; to be initialized with \c SEGMENT
+  explicit WledPxMatrix(Segment &seg) : PxMatrix(seg.vWidth(), seg.vHeight()), _seg(seg) {}
+
+  /// 2D-blur the pixels of the matrix (can be asymmetrical).
+  void blur(uint8_t blurAmountX, uint8_t blurAmountY, bool smear = false) { _seg.blur2D(blurAmountX, blurAmountY, smear); }
+
+  /// Backdoor: Get the underlying Segment.
+  Segment &getSegment() { return _seg; }
+
+  /// Convenience backdoor: Access the underlying Segment's members via arrow operator.
+  Segment *operator->() { return &_seg; }
+
+  [[deprecated("use fadeToBackground() instead")]] void fade_out(uint8_t rate) { _seg.fade_out(rate); }
+
+private:
+  PxColor do_getBackgroundColor() const { return _seg.getCurrentColor(1); }
+  PxColor do_getPixelColor(const APoint &pos) const { return _seg.getPixelColorXY(pos.x, pos.y); }
+  void do_setPixelColor(const APoint &pos, PxColor color) { _seg.setPixelColorXY(pos.x, pos.y, color.wrgb); }
+
+private:
+  Segment &_seg;
+};
+
+//--------------------------------------------------------------------------------------------------
+
 /** AudioReactive Usermod Data (as facade for the handmade data conversions).
  * This helper is a code manifestation of the textual description about how AudioReactive's generic
  * Usermod Data shall be dissected & converted.
@@ -465,42 +415,157 @@ public:
     }
   }
 
-  // either sampleAvg or sampleAgc depending on soundAgc; smoothed sample
-  // Range: 0.0 .. 255.0
-  float volumeSmth() const { return *static_cast<const float *>(um_data->u_data[0]); }
+  /** Smoothed sample.
+   * Range: 0.0 .. 255.0
+   */
+  float volumeSmth() const { return raw_volumeSmth(); }
 
   /// @brief As volumeSmth() but with a normalized range of 0.0 .. 1.0
   float n_volumeSmth() const { return volumeSmth() / 255.0; }
 
-  // either sampleRaw or rawSampleAgc depending on soundAgc
-  // Range: 0 .. 255
-  uint16_t volumeRaw() const { return *static_cast<const uint16_t *>(um_data->u_data[1]); }
+  /** Current sample.
+   * Range: 0 .. 255
+   */
+  uint16_t volumeRaw() const { return raw_volumeRaw(); }
 
-  // number of FFT bins provided by fftResult()
-  static constexpr uint8_t fftResult_size() { return 16; /* NUM_GEQ_CHANNELS */ }
+  /// @brief As volumeRaw() but with a normalized range of 0.0 .. 1.0
+  float n_volumeRaw() const { return volumeRaw() / 255.0; }
 
-  // Our calculated freq. channel result table to be used by effects
-  const uint8_t *fftResult() const { return static_cast<const uint8_t *>(um_data->u_data[2]); }
+  /// Result of the FFT bin with the given \a index
   uint8_t fftResult(uint8_t index) const { return index < fftResult_size() ? fftResult()[index] : 0; }
 
-  // Boolean flag for peak - used in effects. Responding routine may reset this flag. Auto-reset after strip.getFrameTime()
-  bool samplePeak() const { return *static_cast<const bool *>(um_data->u_data[3]); }
+  /// Our calculated frequency channel result table to be used by effects (FFT bins).
+  const uint8_t *fftResult() const { return static_cast<const uint8_t *>(um_data->u_data[2]); }
 
-  // FFT: strongest (peak) frequency
-  float FFT_MajorPeak() const { return *static_cast<const float *>(um_data->u_data[4]); }
+  /// Number of FFT bins provided by fftResult()
+  static constexpr uint8_t fftResult_size() { return 16; /* NUM_GEQ_CHANNELS */ }
 
-  // FFT_Magnitude, scaled by multAgc
-  float my_magnitude() const { return *static_cast<const float *>(um_data->u_data[5]); }
+  /** 0 no peak; >= 1 peak detected.
+   * In future, this will also provide peak Magnitude.
+   */
+  uint8_t samplePeak() const { return raw_samplePeak(); }
 
-  // (was 10) Reasonable value for constant volume for 'peak detector', as it won't always trigger  (deprecated)
-  // requires UI element (SEGMENT.customX?), changes source element
-  // This is a setter!
-  uint8_t &maxVol() { return *static_cast<uint8_t *>(um_data->u_data[6]); }
+  /// Frequency (Hz) of largest FFT result.
+  float fftMajorPeak() const { return raw_FFT_MajorPeak(); }
 
-  // Used to select the bin for FFT based beat detection  (deprecated)
-  // requires UI element (SEGMENT.customX?), changes source element
-  // This is a setter!
-  uint8_t &binNum() { return *static_cast<uint8_t *>(um_data->u_data[7]); }
+  // Largest FFT result from a single run (raw value, can go up to 4096).
+  float fftMagnitude() const { return raw_my_magnitude(); }
+
+  /** Setter for reasonable value for constant volume for 'peak detector', as it won't always trigger.
+   * Assign your desired value to the returned reference.
+   * @note This method is deprecated.
+   */
+  uint8_t &maxVol() { return raw_maxVol(); }
+
+  /** Setter to select the bin for FFT based beat detection.
+   * Assign your desired value to the returned reference.
+   * @note This method is deprecated.
+   */
+  uint8_t &binNum() { return raw_binNum(); }
+
+private:
+  // Copies of all the comments and other breadcrumbs that are spread throughout audio_reactive.h
+
+  // static uint8_t soundAgc = 0;    // Automagic gain control: 0 - none, 1 - normal, 2 - vivid, 3 - lazy (config value)
+  // static float sampleAvg = 0.0f;  // Smoothed Average sample - sampleAvg < 1 means "quiet" (simple noise gate)
+  // static float sampleAgc = 0.0f;  // Smoothed AGC sample
+  // int16_t sampleRaw = 0;          // Current sample. Must only be updated ONCE!!! (amplified mic value by sampleGain and inputLevel)
+  // int16_t rawSampleAgc = 0;       // not smoothed AGC sample
+
+  // float volumeSmth = 0.0f;                           // either sampleAvg or sampleAgc depending on soundAgc; smoothed sample
+  // um_data->u_data[0] = &volumeSmth;                  //*used (New)
+  // um_data->u_type[0] = UMT_FLOAT;
+  // volumeSmth = *(float *)um_data->u_data[0];
+  // [WLED_MM SyncPacket::] float sampleSmth;           //  04 Bytes  offset 12 - either "sampleAvg" or "sampleAgc" depending on soundAgc setting
+  float raw_volumeSmth() const { return *static_cast<const float *>(um_data->u_data[0]); }
+
+  // int16_t volumeRaw = 0;                             // either sampleRaw or rawSampleAgc depending on soundAgc
+  // um_data->u_data[1] = &volumeRaw;                   // used (New)
+  // um_data->u_type[1] = UMT_UINT16;
+  // volumeRaw = *(float *)um_data->u_data[1];
+  // [WLED_MM SyncPacket::] float sampleRaw;            //  04 Bytes  offset 8  - either "sampleRaw" or "rawSampleAgc" depending on soundAgc setting
+  uint16_t raw_volumeRaw() const { return *static_cast<const uint16_t *>(um_data->u_data[1]); }
+
+  // static uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};  // Our calculated freq. channel result table to be used by effects
+  // um_data->u_data[2] = fftResult;                    //*used (Blurz, DJ Light, Noisemove, GEQ_base, 2D Funky Plank, Akemi)
+  // um_data->u_type[2] = UMT_BYTE_ARR;
+  // uint8_t *fftResult = nullptr;
+  // fftResult = (uint8_t *)um_data->u_data[2];
+  // [WLED_MM SyncPacket::] uint8_t fftResult[16];      //  16 Bytes  offset 18 - 16 GEQ channels, each channel has one byte (uint8_t)
+  const uint8_t *raw_fftResult() const { return static_cast<const uint8_t *>(um_data->u_data[2]); }
+
+  // static bool samplePeak = false;                    // Boolean flag for peak - used in effects. Responding routine may reset this flag. Auto-reset after strip.getFrameTime()
+  // um_data->u_data[3] = &samplePeak;                  //*used (Puddlepeak, Ripplepeak, Waterfall)
+  // um_data->u_type[3] = UMT_BYTE;
+  // bool samplePeak = false;
+  // samplePeak = *(uint8_t *)um_data->u_data[3];
+  // [WLED_MM SyncPacket::] uint8_t samplePeak;         //  01 Bytes  offset 16 - 0 no peak; >=1 peak detected. In future, this will also provide peak Magnitude
+  uint8_t raw_samplePeak() const { return *static_cast<const uint8_t *>(um_data->u_data[3]); }
+
+  // static float FFT_MajorPeak = 1.0f;                 // FFT: strongest (peak) frequency
+  // um_data->u_data[4] = &FFT_MajorPeak;               //*used (Ripplepeak, Freqmap, Freqmatrix, Freqpixels, Freqwave, Gravfreq, Rocktaves, Waterfall)
+  // um_data->u_type[4] = UMT_FLOAT;
+  // float FFT_MajorPeak = 1.0;
+  // FFT_MajorPeak = *(float *)um_data->u_data[4];
+  // [WLED_MM SyncPacket::] float FFT_MajorPeak;        //  04 Bytes  offset 40 - frequency (Hz) of largest FFT result
+  float raw_FFT_MajorPeak() const { return *static_cast<const float *>(um_data->u_data[4]); }
+
+  // float my_magnitude = 0.0f;                         // FFT_Magnitude, scaled by multAgc
+  // um_data->u_data[5] = &my_magnitude;                // used (New)
+  // um_data->u_type[5] = UMT_FLOAT;
+  // my_magnitude = *(float *)um_data->u_data[5];
+  // [WLED_MM SyncPacket::] float FFT_Magnitude;        //  04 Bytes  offset 36 - largest FFT result from a single run (raw value, can go up to 4096)
+  float raw_my_magnitude() const { return *static_cast<const float *>(um_data->u_data[5]); }
+
+  // static uint8_t maxVol = 31;                        // (was 10) Reasonable value for constant volume for 'peak detector', as it won't always trigger  (deprecated)
+  // um_data->u_data[6] = &maxVol;                      // assigned in effect function from UI element!!! (Puddlepeak, Ripplepeak, Waterfall)
+  // um_data->u_type[6] = UMT_BYTE;
+  // uint8_t *maxVol = (uint8_t *)(&SEGENV.aux1 + 1);   // just in case assignment
+  // maxVol = (uint8_t *)um_data->u_data[6];            // requires UI element (SEGMENT.customX?), changes source element
+  uint8_t &raw_maxVol() { return *static_cast<uint8_t *>(um_data->u_data[6]); }
+
+  // static uint8_t binNum = 8;                         // Used to select the bin for FFT based beat detection  (deprecated)
+  // um_data->u_data[7] = &binNum;                      // assigned in effect function from UI element!!! (Puddlepeak, Ripplepeak, Waterfall)
+  // um_data->u_type[7] = UMT_BYTE;
+  // uint8_t *binNum = (uint8_t *)&SEGENV.aux1;         // just in case assignment
+  // binNum = (uint8_t *)um_data->u_data[7];            // requires UI element (SEGMENT.customX?), changes source element
+  uint8_t &raw_binNum() { return *static_cast<uint8_t *>(um_data->u_data[7]); }
+
+#if (0) // new in WLED_MM
+#ifdef ARDUINO_ARCH_ESP32
+  // static float FFT_MajPeakSmth = 1.0f;               // FFT: (peak) frequency, smooth
+  // um_data->u_data[8] = &FFT_MajPeakSmth;             // new
+  // um_data->u_type[8] = UMT_FLOAT;
+  // FFT_MajPeakSmth = *(float *)um_data->u_data[8];    // FFT Majorpeak smoothed
+  float raw_FFT_MajorPeakSmth() const { return *static_cast<const float *>(um_data->u_data[8]); }
+#else
+  // static float FFT_MajorPeak = 1.0f;                 // FFT: strongest (peak) frequency
+  // um_data->u_data[8] = &FFT_MajorPeak;               // substitute for 8266
+  // um_data->u_type[8] = UMT_FLOAT;
+#endif
+
+  // float soundPressure = 0;                           // Sound Pressure estimation, based on microphone raw readings. 0 ->5db, 255 ->105db
+  // um_data->u_data[9] = &soundPressure;               // used (New)
+  // um_data->u_type[9] = UMT_FLOAT;
+  // soundPressure = *(float *)um_data->u_data[9];      // sound pressure ( = logarithmic scale microphone input). Range 0...255
+  // [WLED_MM SyncPacket::] uint8_t pressure[2];        //  02 Bytes, offset 6  - sound pressure as fixed point (8bit integer,  8bit fraction)
+  float raw_soundPressure() const { return *static_cast<const float *>(um_data->u_data[9]); }
+
+  // // TODO: probably best not used by receive nodes
+  // static float agcSensitivity = 128;                 // AGC sensitivity estimation, based on agc gain (multAgc). calculated by getSensitivity(). range 0..255
+  // um_data->u_data[10] = &agcSensitivity;             // used (New) - dummy value on 8266
+  // um_data->u_type[10] = UMT_FLOAT;
+  // agcSensitivity = *(float *)um_data->u_data[10];    // current AGC gain, scaled to 0...255. use "255.0f - agcSensitivity" to get MIC input level
+  float raw_agcSensitivity() const { return *static_cast<const float *>(um_data->u_data[10]); }
+
+  // static uint16_t zeroCrossingCount = 0;             // number of zero crossings in the current batch of 512 samples
+  // um_data->u_data[11] = &zeroCrossingCount;          // for auto playlist usermod
+  // um_data->u_type[11] = UMT_UINT16;
+  // [WLED_MM SyncPacket::] uint16_t zeroCrossingCount; //  02 Bytes, offset 34 - number of zero crossings seen in 23ms
+  uint16_t raw_zeroCrossingCount() const { return *static_cast<const uint16_t *>(um_data->u_data[11]); }
+
+  // [WLED_MM SyncPacket::] uint8_t frameCounter;       //  01 Bytes  offset 17 - rolling counter to track duplicate/out of order packets
+#endif
 };
 
 //--------------------------------------------------------------------------------------------------

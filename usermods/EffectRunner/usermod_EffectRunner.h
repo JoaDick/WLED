@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "FXutils2D.h"
+#include <memory>
+#include "FXutils.h"
 
 // #define USERMOD_ID_EFFECT_RUNNER         57     //Usermod "usermod_EffectRunner.h"
 
@@ -19,27 +20,6 @@ public:
   void setup() override { addEffects(strip); }
 
   void loop() override {}
-
-  // void addToJsonInfo(JsonObject &root) override
-  // {
-  //   if (0)
-  //   {
-  //     JsonObject user = root["u"];
-  //     if (user.isNull())
-  //     {
-  //       user = root.createNestedObject("u");
-  //     }
-
-  //     FxConfig config(SEGMENT);
-  //     // ... dump config into info ...
-  //     // palette...?
-
-  //     JsonArray infoArr = user.createNestedArray(F("???"));
-  //     infoArr.add(F("receiving v"));
-  //     infoArr.add(F("1"));
-  //     // infoArr.add(F("<i>(unconnected)</i>"));
-  //   }
-  // }
 
 private:
   void addEffects(WS2812FX &wled);
@@ -123,7 +103,7 @@ private:
     }
 
     const uint16_t newPos = getPosition();
-    pixels.lineAbs(_lastPos, newPos, config.fxColor());
+    lineAbs(pixels, _lastPos, newPos, config.fxColor());
     _lastPos = newPos;
 
     return 0;
@@ -180,17 +160,17 @@ private:
       fxData.peakPosRaw = posRaw;
     }
 
-    pixels.n_lineAbs(1.0 - fxData.lastPosSmth, 1.0 - posSmth, config.fxColor());
+    lineAbs_n(pixels, 1.0 - fxData.lastPosSmth, 1.0 - posSmth, config.fxColor());
     if (fxData.peakPosSmth > 0.0)
     {
-      pixels.n_setPixelColor(1.0 - fxData.peakPosSmth, config.auxColor());
+      pixels.setPixelColor_n(1.0 - fxData.peakPosSmth, config.auxColor());
       fxData.peakPosSmth -= 0.002;
     }
 
-    pixels.n_lineAbs(fxData.lastPosRaw, posRaw, config.bgColor());
+    lineAbs_n(pixels, fxData.lastPosRaw, posRaw, config.bgColor());
     if (fxData.peakPosRaw > 0.0)
     {
-      pixels.n_setPixelColor(fxData.peakPosRaw, config.auxColor());
+      pixels.setPixelColor_n(fxData.peakPosRaw, config.auxColor());
       fxData.peakPosRaw -= 0.002;
     }
 
@@ -239,7 +219,7 @@ private:
       const float maxBlobSize = 1.0 / numBlobs;
       const float centerPos = maxBlobSize / 2.0 + i * maxBlobSize;
       // TODO: somehow use a color palette
-      pixels.n_lineCentered(centerPos, blobSize, config.fxColor());
+      lineCentered_n(pixels, centerPos, blobSize, config.fxColor());
     }
 
     return 0;
@@ -291,7 +271,7 @@ private:
     pixels.fill(0);
     for (uint8_t i = 1; i < arrayLen; i += 2)
     {
-      pixels.n_lineRel(blobOffsets[i] * scaleFactor, blobSizes[i] * scaleFactor, config.fxColor());
+      lineRel_n(pixels, blobOffsets[i] * scaleFactor, blobSizes[i] * scaleFactor, config.fxColor());
     }
 
     return 0;
@@ -324,7 +304,7 @@ protected:
       hue += hueOffset;
       if (moreRed)
       {
-        hue = PxColor::redShift(hue);
+        hue = redShiftHue(hue);
       }
 
       const uint32_t volX = i * volSqueeze * 64;
@@ -440,6 +420,44 @@ const char FxColorCloudsExtraSlow::FX_data[] PROGMEM = "Color Clouds Turtle@,,,,
 //--------------------------------------------------------------------------------------------------
 
 /// more effect class examples ...
+
+//--------------------------------------------------------------------------------------------------
+
+/** TBD
+ */
+class BufferedPxArray final : public PxArray
+{
+public:
+  explicit BufferedPxArray(int size) : PxArray(size), pixels(new PxColor[size]) {}
+
+  PxColor backgroundColor = 0;
+
+private:
+  PxColor do_getBackgroundColor() const { return backgroundColor; }
+  PxColor do_getPixelColor(int index) const { return pixels[index]; }
+  void do_setPixelColor(int index, PxColor color) { pixels[index] = color; }
+
+private:
+  std::unique_ptr<PxColor[]> pixels;
+};
+
+/** TBD
+ */
+class BufferedPxMatrix final : public PxMatrix
+{
+public:
+  BufferedPxMatrix(int sizeX, int sizeY) : PxMatrix(sizeX, sizeY), pixels(new PxColor[sizeX * sizeY]) {}
+
+  PxColor backgroundColor = 0;
+
+private:
+  PxColor do_getBackgroundColor() const { return backgroundColor; }
+  PxColor do_getPixelColor(const APoint &p) const { return pixels[p.x * _sizeX + p.y]; }
+  void do_setPixelColor(const APoint &p, PxColor color) { pixels[p.x * _sizeX + p.y] = color; }
+
+private:
+  std::unique_ptr<PxColor[]> pixels;
+};
 
 //--------------------------------------------------------------------------------------------------
 
