@@ -37,6 +37,7 @@
 #include "FXutilsCore.h"
 #include "FXutils1D.h"
 #include "FXutils2D.h"
+#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -345,6 +346,27 @@ private:
   PxColor do_getBackgroundColor() const { return _seg.getCurrentColor(1); }
   PxColor do_getPixelColor(AIndex pos) const { return _seg.getPixelColor(pos); }
   void do_setPixelColor(AIndex pos, PxColor color) { _seg.setPixelColor(pos, color.wrgb); }
+  void do_fade(AIndex pos, PxColor color) { _seg.setPixelColor(pos, color.wrgb); }
+#if (1)
+  void do_fadeToBlackBy(uint8_t fadeBy) override { _seg.fadeToBlackBy(fadeBy); }
+#else
+  void do_fadeToBlackBy(uint8_t fadeBy) override
+  {
+    EffectProfilerTrigger profiler;
+    if (profiler.mustRun_A())
+    {
+      profiler.startSingle_A();
+      PxArray::do_fadeToBlackBy(fadeBy);
+      profiler.stop();
+    }
+    else
+    {
+      profiler.startSingle_B();
+      _seg.fadeToBlackBy(fadeBy);
+      profiler.stop();
+    }
+  }
+#endif
 
 private:
   Segment &_seg;
@@ -379,6 +401,26 @@ private:
   PxColor do_getBackgroundColor() const { return _seg.getCurrentColor(1); }
   PxColor do_getPixelColor(const APoint &pos) const { return _seg.getPixelColorXY(pos.x, pos.y); }
   void do_setPixelColor(const APoint &pos, PxColor color) { _seg.setPixelColorXY(pos.x, pos.y, color.wrgb); }
+#if (1)
+  void do_fadeToBlackBy(uint8_t fadeBy) override { _seg.fadeToBlackBy(fadeBy); }
+#else
+  void do_fadeToBlackBy(uint8_t fadeBy) override
+  {
+    EffectProfilerTrigger profiler;
+    if (profiler.mustRun_A())
+    {
+      profiler.startSingle_A();
+      PxMatrix::do_fadeToBlackBy(fadeBy);
+      profiler.stop();
+    }
+    else
+    {
+      profiler.startSingle_B();
+      _seg.fadeToBlackBy(fadeBy);
+      profiler.stop();
+    }
+  }
+#endif
 
 private:
   Segment &_seg;

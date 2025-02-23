@@ -5,103 +5,7 @@
 #pragma once
 
 #include "wled.h"
-
-//--------------------------------------------------------------------------------------------------
-
-// move into EffectProfilerSensor.h
-
-class EffectProfilerBackend
-{
-public:
-  EffectProfilerBackend(const EffectProfilerBackend &) = delete;
-  EffectProfilerBackend &operator=(const EffectProfilerBackend &) = delete;
-
-  virtual bool isSelected_A() = 0;
-
-  virtual uint32_t getIterations_A() = 0;
-  virtual uint32_t getIterations_B() = 0;
-
-  virtual void addTestRun(uint32_t duration_us, uint32_t iterations, bool is_A, Segment &seg) = 0;
-
-protected:
-  EffectProfilerBackend() = default;
-};
-
-class EffectProfilerSensor : private EffectProfilerBackend
-{
-public:
-  explicit EffectProfilerSensor() // make targeted CPU usage configurable?
-  {
-    UM_Exchange_Data *um_data;
-    if (UsermodManager::getUMData(&um_data, USERMOD_ID_EFFECT_PROFILER))
-    {
-      _backend = static_cast<EffectProfilerBackend *>(um_data->u_data[0]);
-    }
-    else
-    {
-      _backend = this;
-    }
-    startSingle_A();
-  }
-
-  ~EffectProfilerSensor() { stop(); }
-
-  bool mustRun_A() { return _backend->isSelected_A(); }
-
-  bool mustRun_B() { return !_backend->isSelected_A(); }
-
-  void startSingle_A()
-  {
-    _is_A = true;
-    _iterations = 1;
-    _startTime = micros();
-  };
-
-  void startSingle_B()
-  {
-    _is_A = false;
-    _iterations = 1;
-    _startTime = micros();
-  };
-
-  uint32_t startMulti_A()
-  {
-    _is_A = true;
-    _iterations = _backend->getIterations_A();
-    _startTime = micros();
-    return _iterations;
-  };
-
-  uint32_t startMulti_B()
-  {
-    _is_A = false;
-    _iterations = _backend->getIterations_B();
-    _startTime = micros();
-    return _iterations;
-  };
-
-  void stop()
-  {
-    const uint32_t endTime = micros();
-    if (_startTime)
-    {
-      _backend->addTestRun(endTime - _startTime, _iterations, _is_A, SEGMENT);
-      _startTime = 0;
-    }
-  };
-
-private:
-  bool isSelected_A() override { return true; }
-  uint32_t getIterations_A() override { return 1; }
-  uint32_t getIterations_B() override { return 1; }
-  void addTestRun(uint32_t, uint32_t, bool, Segment &) override {}
-
-private:
-  EffectProfilerBackend *_backend;
-  bool _is_A;
-  uint32_t _iterations;
-  uint32_t _startTime;
-};
+#include "EffectProfilerTrigger.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -137,7 +41,7 @@ uint16_t mode_ExampleRandom()
  */
 uint16_t mode_EffectProfiler_Auto()
 {
-  EffectProfilerSensor profiler;
+  EffectProfilerTrigger profiler;
 
   mode_ExampleRainbow();
   // mode_ExampleRandom();
@@ -151,7 +55,7 @@ static const char _data_FX_mode_EffectProfiler_Auto[] PROGMEM = "A Profiler: aut
  */
 uint16_t mode_EffectProfiler_FxCompare()
 {
-  EffectProfilerSensor profiler;
+  EffectProfilerTrigger profiler;
   uint16_t retval;
 
   if (profiler.mustRun_A())
@@ -161,8 +65,7 @@ uint16_t mode_EffectProfiler_FxCompare()
     retval = mode_perlinmove();
     profiler.stop();
   }
-
-  if (profiler.mustRun_B())
+  else
   {
     profiler.startSingle_B();
     // retval = mode_fire_2012();
@@ -190,7 +93,7 @@ void complicated_algorithm()
 void optimized_algorithm()
 {
   Segment &seg = SEGMENT;
-  const unsigned size = seg.vLength();
+  const unsigned size = SEGLEN;
   uint32_t lastColor = seg.getPixelColor(size - 1);
   for (unsigned i = 0; i < size; ++i)
   {
@@ -202,7 +105,7 @@ void optimized_algorithm()
 
 uint16_t mode_EffectProfiler_example()
 {
-  EffectProfilerSensor profiler;
+  EffectProfilerTrigger profiler;
 
   mode_ExampleRandom();
 
@@ -211,17 +114,18 @@ uint16_t mode_EffectProfiler_example()
     const uint32_t iterations = profiler.startMulti_A();
     for (uint32_t i = 0; i < iterations; ++i)
     {
-      complicated_algorithm();
+      // the new _A_dvanced stuff
+      optimized_algorithm();
     }
     profiler.stop();
   }
-
-  if (profiler.mustRun_B())
+  else
   {
     const uint32_t iterations = profiler.startMulti_B();
     for (uint32_t i = 0; i < iterations; ++i)
     {
-      optimized_algorithm();
+      // the old stuff as reference _B_aseline
+      complicated_algorithm();
     }
     profiler.stop();
   }
@@ -232,7 +136,7 @@ static const char _data_FX_mode_EffectProfiler[] PROGMEM = "A Profiler: A-B@;";
 
 //--------------------------------------------------------------------------------------------------
 
-/// Effect runtime statistics calculated by the profiler.
+/// Effect runtime statistics, calculated by the profiler.
 class EffectProfilerStats
 {
 public:
@@ -355,11 +259,36 @@ private:
     seg.setPixelColor(2, 0x000000);
     if (_isSelected_A)
     {
-      seg.setPixelColor(0, 0xFF0000);
+      seg.setPixelColor(0, 0x00FF00);
     }
-    else if (_stats_B.isValid())
+    else
     {
-      seg.setPixelColor(1, 0x00FF00);
+      if (_stats_B.isValid())
+      {
+        seg.setPixelColor(1, 0x0000FF);
+      }
+    }
+
+    if (_stats_A.isValid() && _stats_B.isValid())
+    {
+      const uint32_t duration_A = _stats_A.avgDuration_us();
+      const uint32_t duration_B = _stats_B.avgDuration_us();
+      if (duration_A < duration_B)
+      {
+        const float ratio = float(duration_A) / float(duration_B);
+        const int pos = seg.vLength() * ratio;
+        seg.setPixelColor(pos - 1, 0);
+        seg.setPixelColor(pos, 0x00FF00);
+        seg.setPixelColor(pos + 1, 0);
+      }
+      if (duration_A > duration_B)
+      {
+        const float ratio = float(duration_B) / float(duration_A);
+        const int pos = seg.vLength() * ratio;
+        seg.setPixelColor(pos - 1, 0);
+        seg.setPixelColor(pos, 0x0000FF);
+        seg.setPixelColor(pos + 1, 0);
+      }
     }
   }
 
@@ -385,7 +314,7 @@ private:
   EffectProfilerStats _stats_B;
 };
 
-/// The effect profiler usermod to be registered ad WLED.
+/// The EffectProfiler usermod to be registered at WLED.
 class UmEffectProfiler : public Usermod
 {
 public:
@@ -419,6 +348,8 @@ public:
 
   void addToJsonInfo(JsonObject &root) override
   {
+    // TODO: add a "Reset"-button
+
     JsonObject user = root["u"];
     if (user.isNull())
     {
@@ -436,9 +367,8 @@ public:
       uiDomString += _profiler.currentMode();
       if (stats_B.isValid())
       {
-        // uiDomString += _profiler.isSelected_A() ? F(": <b>A</b> | B") : F(": A | <b>B</b>");
-        uiDomString += _profiler.isSelected_A() ? F(": <font color=\"red\";><b>A</b></font> | B")
-                                                : F(": A | <font color=\"lime\";><b>B</b></font>");
+        uiDomString += _profiler.isSelected_A() ? F(": <font color=\"#00FF00\";><b>A</b></font> | B")
+                                                : F(": A | <font color=\"#00BFFF\";><b>B</b></font>");
       }
     }
     else
@@ -462,17 +392,99 @@ public:
 
     if (stats_A.isValid() || stats_B.isValid())
     {
+      const int32_t duration_A = stats_A.avgDuration_us();
+      const int32_t duration_B = stats_B.avgDuration_us();
+
+      if (stats_A.isValid() && stats_B.isValid())
+      {
+        const int32_t ratio = (1000 * duration_A) / duration_B;
+        const int32_t delta = duration_A - duration_B;
+
+        infoArr = user.createNestedArray(F("Delta A - B"));
+        uiDomString.clear();
+
+        if (delta > 0)
+        {
+          uiDomString += F("+");
+        }
+        uiDomString += delta;
+        uiDomString += F("µs (");
+        if (delta > 0)
+        {
+          uiDomString += F("+");
+        }
+        if (delta < 0)
+        {
+          uiDomString += F("-");
+        }
+        uiDomString += abs(ratio - 1000) / 10;
+        uiDomString += F(".");
+        uiDomString += abs(ratio - 1000) % 10;
+        uiDomString += F("%)<br>");
+
+        uiDomString += F("A:B = <font color=\"");
+        uiDomString += delta < 0 ? F("#90EE90") : F("#FF8C00");
+        uiDomString += F("\";>");
+        uiDomString += ratio / 10;
+        uiDomString += F(".");
+        uiDomString += ratio % 10;
+        uiDomString += F("%</font>");
+
+        infoArr.add(uiDomString);
+      }
+
+#if (0)
+      if (stats_A.isValid() && stats_B.isValid())
+      {
+        const int32_t ratio = (1000 * duration_A) / duration_B;
+        const int32_t delta = duration_A - duration_B;
+
+        infoArr = user.createNestedArray(F("Delta A - B (optimization)"));
+        uiDomString.clear();
+        if (delta > 0)
+        {
+          uiDomString += F("+");
+        }
+        uiDomString += delta;
+        uiDomString += F("µs (");
+        if (delta > 0)
+        {
+          uiDomString += F("+");
+        }
+        if (delta < 0)
+        {
+          uiDomString += F("-");
+        }
+        uiDomString += abs(ratio - 1000) / 10;
+        uiDomString += F(".");
+        uiDomString += abs(ratio - 1000) % 10;
+        uiDomString += F("%)");
+        infoArr.add(uiDomString);
+
+#if (1)
+        infoArr = user.createNestedArray(F("Average duration ratio"));
+        uiDomString.clear();
+        uiDomString += F("A : B = ");
+        uiDomString += ratio / 10;
+        uiDomString += F(".");
+        uiDomString += ratio % 10;
+        uiDomString += F("%");
+        infoArr.add(uiDomString);
+#endif
+      }
+#endif
+
       infoArr = user.createNestedArray(F("Average duration"));
       uiDomString.clear();
       if (stats_A.isValid())
       {
-        uiDomString += stats_A.avgDuration_us();
+        uiDomString += duration_A;
         uiDomString += F("µs");
       }
       if (stats_B.isValid())
       {
         uiDomString += F(" | ");
-        uiDomString += stats_B.avgDuration_us();
+        uiDomString += duration_B;
         uiDomString += F("µs");
       }
       infoArr.add(uiDomString);
