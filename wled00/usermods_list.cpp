@@ -258,6 +258,10 @@
   #include "../usermods/EffectRunner/usermod_EffectRunner.h"
 #endif
 
+#ifdef USERMOD_EFFECT_PROFILER
+  #include "../usermods/EffectProfiler/usermod_EffectProfiler.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -501,5 +505,9 @@ void registerUsermods()
 
   #ifdef USERMOD_EFFECT_RUNNER
   UsermodManager::add(new UmEffectRunner());
+  #endif
+
+  #ifdef USERMOD_EFFECT_PROFILER
+  UsermodManager::add(new UmEffectProfiler());
   #endif
 }
