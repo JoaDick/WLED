@@ -252,6 +252,9 @@ public:
     {
       initEffect(now);
     }
+#if(0)
+    EffectProfilerTrigger profiler;
+#endif
     const uint16_t frametime = showEffect(now);
     return frametime ? frametime : defaultFrametime;
   }
@@ -355,13 +358,13 @@ private:
     EffectProfilerTrigger profiler;
     if (profiler.mustRun_A())
     {
-      profiler.startSingle_A();
+      profiler.start_A();
       PxArray::do_fadeToBlackBy(fadeBy);
       profiler.stop();
     }
     else
     {
-      profiler.startSingle_B();
+      profiler.start_B();
       _seg.fadeToBlackBy(fadeBy);
       profiler.stop();
     }
@@ -409,13 +412,13 @@ private:
     EffectProfilerTrigger profiler;
     if (profiler.mustRun_A())
     {
-      profiler.startSingle_A();
+      profiler.start_A();
       PxMatrix::do_fadeToBlackBy(fadeBy);
       profiler.stop();
     }
     else
     {
-      profiler.startSingle_B();
+      profiler.start_B();
       _seg.fadeToBlackBy(fadeBy);
       profiler.stop();
     }
