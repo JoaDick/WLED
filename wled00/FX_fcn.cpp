@@ -91,18 +91,6 @@ uint8_t  Segment::_clipStartY = 0;
 uint8_t  Segment::_clipStopY = 1;
 #endif
 
-// copy constructor
-Segment::Segment(const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
-  memcpy((void*)this, (void*)&orig, sizeof(Segment));
-  _t = nullptr; // copied segment cannot be in transition
-  name = nullptr;
-  data = nullptr;
-  _dataLen = 0;
-  if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-  if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-}
-
 // move constructor
 Segment::Segment(Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
@@ -111,26 +99,6 @@ Segment::Segment(Segment &&orig) noexcept {
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
-}
-
-// copy assignment
-Segment& Segment::operator= (const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
-  if (this != &orig) {
-    // clean destination
-    if (name) { free(name); name = nullptr; }
-    stopTransition();
-    deallocateData();
-    // copy source
-    memcpy((void*)this, (void*)&orig, sizeof(Segment));
-    // erase pointers to allocated data
-    data = nullptr;
-    _dataLen = 0;
-    // copy source data
-    if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-    if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  }
-  return *this;
 }
 
 // move assignment
@@ -1084,7 +1052,7 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
   return strip.getPixelColor(i);
 }
 
-uint8_t Segment::differs(const Segment& b) const {
+uint8_t Segment::differs(const SegmentSettings& b) const {
   uint8_t d = 0;
   if (start != b.start)         d |= SEG_DIFFERS_BOUNDS;
   if (stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
@@ -1099,6 +1067,7 @@ uint8_t Segment::differs(const Segment& b) const {
   if (custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
   if (custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
   if (custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
+  // also consider check1/2/3 ?
   if (startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
   if (stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
 
@@ -1790,7 +1759,7 @@ void WS2812FX::resetSegments() {
   #else
   segment seg = Segment(0, _length);
   #endif
-  _segments.push_back(seg);
+  _segments.push_back(std::move(seg));
   _segments.shrink_to_fit(); // just in case ...
   _mainSegment = 0;
 }
