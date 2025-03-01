@@ -57,7 +57,6 @@
   #include "../usermods/BME68X_v2/usermod_bme68x.h"
 #endif
 
-
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   #include "../usermods/usermod_v2_four_line_display_ALT/usermod_v2_four_line_display_ALT.h"
 #endif
@@ -254,12 +253,16 @@
   #include "../usermods/usermod_v2_RF433/usermod_v2_RF433.h"
 #endif
 
-#ifdef USERMOD_EFFECT_RUNNER
-  #include "../usermods/EffectRunner/usermod_EffectRunner.h"
+#ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
+  #include "../usermods/usermod_v2_brightness_follow_sun/usermod_v2_brightness_follow_sun.h"
 #endif
 
 #ifdef USERMOD_EFFECT_PROFILER
   #include "../usermods/EffectProfiler/usermod_EffectProfiler.h"
+#endif
+
+#ifdef USERMOD_EFFECT_RUNNER
+  #include "../usermods/EffectRunner/usermod_EffectRunner.h"
 #endif
 
 void registerUsermods()
@@ -486,7 +489,7 @@ void registerUsermods()
   #ifdef USERMOD_INA226
   UsermodManager::add(new UsermodINA226());
   #endif
-  
+
   #ifdef USERMOD_LD2410
   UsermodManager::add(new LD2410Usermod());
   #endif
@@ -503,11 +506,15 @@ void registerUsermods()
   UsermodManager::add(new RF433Usermod());
   #endif
 
-  #ifdef USERMOD_EFFECT_RUNNER
-  UsermodManager::add(new UmEffectRunner());
+  #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
+  UsermodManager::add(new UsermodBrightnessFollowSun());
   #endif
 
   #ifdef USERMOD_EFFECT_PROFILER
   UsermodManager::add(new UmEffectProfiler());
+  #endif
+
+  #ifdef USERMOD_EFFECT_RUNNER
+  UsermodManager::add(new UmEffectRunner());
   #endif
 }
