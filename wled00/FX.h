@@ -16,6 +16,7 @@
 #ifndef WS2812FX_h
 #define WS2812FX_h
 
+#include <memory>
 #include <vector>
 #include "wled.h"
 
@@ -377,6 +378,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define BLEND_STYLE_COUNT           18
 
 
+class WledEffect;
+using WledEffectPtr = std::unique_ptr<WledEffect>;
+
 typedef enum mapping1D2D {
   M12_Pixels = 0,
   M12_pBar = 1,
@@ -436,6 +440,7 @@ typedef struct Segment {
     uint16_t aux1;  // custom var
     byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
+    WledEffectPtr effect;
 
     typedef struct TemporarySegmentData {
       uint16_t _optionsT;
@@ -1035,6 +1040,10 @@ class WS2812FX {  // 96 bytes
     uint8_t _segment_index;
     uint8_t _mainSegment;
 };
+
+// This include at the end of the file is a bit unorthodox, but this is the only possibility to
+// keep that code in a separate file (instead of placing it directly here).
+#include "WledEffect.h"
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];

@@ -294,11 +294,19 @@ static const char _data_FX_MODE_COLOR_SWEEP_RANDOM[] PROGMEM = "Sweep Random@!;;
  * Lights all LEDs up in one random color. Then switches them
  * to the next random color.
  */
-uint16_t mode_random_color(void) {
-  uint32_t cycleTime = 200 + (255 - SEGMENT.speed)*50;
-  uint32_t it = strip.now / cycleTime;
-  uint32_t rem = strip.now % cycleTime;
-  unsigned fadedur = (cycleTime * SEGMENT.intensity) >> 8;
+class Fx_RandomColor : public WledFxBase
+{
+ public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char     FX_data[];
+
+  explicit Fx_RandomColor(FxSetup &fxs) : WledFxBase(fxs) {}
+
+uint16_t showEffect(FxEnv &env) override {
+  uint32_t cycleTime = 200 + (255 - env.seg().speed)*50;
+  uint32_t it = env.now() / cycleTime;
+  uint32_t rem = env.now() % cycleTime;
+  unsigned fadedur = (cycleTime * env.seg().intensity) >> 8;
 
   uint32_t fade = 255;
   if (fadedur) {
@@ -306,21 +314,23 @@ uint16_t mode_random_color(void) {
     if (fade > 255) fade = 255;
   }
 
-  if (SEGENV.call == 0) {
-    SEGENV.aux0 = hw_random8();
-    SEGENV.step = 2;
-  }
-  if (it != SEGENV.step) //new color
+  if (it != step) //new color
   {
-    SEGENV.aux1 = SEGENV.aux0;
-    SEGENV.aux0 = get_random_wheel_index(SEGENV.aux0); //aux0 will store our random color wheel index
-    SEGENV.step = it;
+    aux1 = aux0;
+    aux0 = get_random_wheel_index(aux0); //aux0 will store our random color wheel index
+    step = it;
   }
 
-  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux1), SEGMENT.color_wheel(SEGENV.aux0), uint8_t(fade)));
-  return FRAMETIME;
+  env.seg().fill(color_blend(env.seg().color_wheel(aux1), env.seg().color_wheel(aux0), uint8_t(fade)));
+  return 0;
 }
-static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade time;;!;01";
+
+ private:
+  uint32_t step = 2;             // trigger for new color
+  uint16_t aux0 = hw_random8();  // current color wheel index
+  uint16_t aux1 = 0;             // previous color wheel index
+};
+const char Fx_RandomColor::FX_data[] PROGMEM = "1 Random Colors FX@!,Fade time;;!;01";
 
 
 /*
@@ -610,6 +620,18 @@ static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width;!,!;!";
  * Blink several LEDs in random colors on, reset, repeat.
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
+class Fx_Twinkle : public WledFxBase
+{
+ public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char     FX_data[];
+
+  explicit Fx_Twinkle(FxSetup &fxs) : WledFxBase(fxs) {}
+
+  uint16_t showEffect(FxEnv &env) override { return mode_twinkle(); }
+
+ private:
+// ----- start of the unmodified effect function -----
 uint16_t mode_twinkle(void) {
   SEGMENT.fade_out(224);
 
@@ -639,7 +661,9 @@ uint16_t mode_twinkle(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; //pixels
+// ----- end of the unmodified effect function -----
+};
+const char Fx_Twinkle::FX_data[] PROGMEM = "1 Twinkle FX@!,!;!,!;!;;m12=0"; //pixels
 
 
 /*
@@ -1246,82 +1270,117 @@ uint16_t mode_comet(void) {
 }
 static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!";
 
+
 /*
  * Fireworks function.
  */
-uint16_t mode_fireworks() {
-  if (SEGLEN <= 1) return mode_static();
-  const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
-  const uint16_t height = SEG_H;
+class FireworksBase : public WledFxBase
+{
+ protected:
+  explicit FireworksBase(FxSetup &fxs) : WledFxBase(fxs),
+  width(fxs.env.seg().is2D() ? fxs.env.segW() : fxs.env.seglen()),
+  height(fxs.env.segH()) {}
 
-  if (SEGENV.call == 0) {
-    SEGENV.aux0 = UINT16_MAX;
-    SEGENV.aux1 = UINT16_MAX;
+  void initEffect(FxEnv &env) override {
+    aux0 = UINT16_MAX;
+    aux1 = UINT16_MAX;
   }
-  SEGMENT.fade_out(128);
 
-  uint8_t x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored in upper and lower byte
-  if (!SEGENV.step) {
+uint16_t mode_fireworks(FxEnv &env) {
+  if (env.seglen() <= 1) return showFallbackEffect(env);
+
+  env.seg().fade_out(128);
+
+  uint8_t x = aux0%width, y = aux0/width; // 2D coordinates stored in upper and lower byte
+  if (!step) {
     // fireworks mode (blur flares)
-    bool valid1 = (SEGENV.aux0 < width*height);
-    bool valid2 = (SEGENV.aux1 < width*height);
+    bool valid1 = (aux0 < width*height);
+    bool valid2 = (aux1 < width*height);
     uint32_t sv1 = 0, sv2 = 0;
-    if (valid1) sv1 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux0); // get spark color
-    if (valid2) sv2 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux1);
-    SEGMENT.blur(16); // used in mode_rain()
-    if (valid1) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv1); else SEGMENT.setPixelColor(SEGENV.aux0, sv1); } // restore spark color after blur
-    if (valid2) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv2); else SEGMENT.setPixelColor(SEGENV.aux1, sv2); } // restore old spark color after blur
+    if (valid1) sv1 = env.seg().is2D() ? env.seg().getPixelColorXY(x, y) : env.seg().getPixelColor(aux0); // get spark color
+    if (valid2) sv2 = env.seg().is2D() ? env.seg().getPixelColorXY(x, y) : env.seg().getPixelColor(aux1);
+    env.seg().blur(16); // used in mode_rain()
+    if (valid1) { if (env.seg().is2D()) env.seg().setPixelColorXY(x, y, sv1); else env.seg().setPixelColor(aux0, sv1); } // restore spark color after blur
+    if (valid2) { if (env.seg().is2D()) env.seg().setPixelColorXY(x, y, sv2); else env.seg().setPixelColor(aux1, sv2); } // restore old spark color after blur
   }
 
   for (int i=0; i<max(1, width/20); i++) {
-    if (hw_random8(129 - (SEGMENT.intensity >> 1)) == 0) {
+    if (hw_random8(129 - (env.seg().intensity >> 1)) == 0) {
       uint16_t index = hw_random16(width*height);
       x = index % width;
       y = index / width;
-      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, false, 0);
-      if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, col);
-      else                SEGMENT.setPixelColor(index, col);
-      SEGENV.aux1 = SEGENV.aux0;  // old spark
-      SEGENV.aux0 = index;        // remember where spark occurred
+      uint32_t col = env.seg().color_from_palette(hw_random8(), false, false, 0);
+      if (env.seg().is2D()) env.seg().setPixelColorXY(x, y, col);
+      else                  env.seg().setPixelColor(index, col);
+      aux1 = aux0;  // old spark
+      aux0 = index; // remember where spark occurred
     }
   }
-  return FRAMETIME;
+  return 0;
 }
-static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;!;12;ix=192,pal=11";
 
-//Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
-uint16_t mode_rain() {
-  if (SEGLEN <= 1) return mode_static();
-  const unsigned width  = SEG_W;
-  const unsigned height = SEG_H;
-  SEGENV.step += FRAMETIME;
-  if (SEGENV.call && SEGENV.step > SPEED_FORMULA_L) {
-    SEGENV.step = 1;
-    if (SEGMENT.is2D()) {
+const uint16_t width;
+const uint16_t height;
+
+uint32_t step = 0;  // custom "step" var
+uint16_t aux0;      // custom var
+uint16_t aux1;      // custom var
+};
+
+
+class Fx_Fireworks : public FireworksBase
+{
+public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char     FX_data[];
+
+  explicit Fx_Fireworks(FxSetup &fxs) : FireworksBase(fxs) {}
+
+  uint16_t showEffect(FxEnv &env) override { return mode_fireworks(env); }
+};
+const char Fx_Fireworks::FX_data[] PROGMEM = "1 Fireworks FX@,Frequency;!,!;!;12;ix=192,pal=11";
+
+
+class Fx_Rain : public FireworksBase
+{
+public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char     FX_data[];
+
+  explicit Fx_Rain(FxSetup &fxs) : FireworksBase(fxs) {}
+
+uint16_t showEffect(FxEnv &env) override {
+  if (env.seglen() <= 1) return showFallbackEffect(env);
+  step += FRAMETIME;
+  if (env.seg().call && step > SPEED_FORMULA_L) {
+    step = 1;
+    if (env.seg().is2D()) {
       //uint32_t ctemp[width];
       //for (int i = 0; i<width; i++) ctemp[i] = SEGMENT.getPixelColorXY(i, height-1);
-      SEGMENT.move(6, 1, true);  // move all pixels down
+      env.seg().move(6, 1, true);  // move all pixels down
       //for (int i = 0; i<width; i++) SEGMENT.setPixelColorXY(i, 0, ctemp[i]); // wrap around
-      SEGENV.aux0 = (SEGENV.aux0 % width) + (SEGENV.aux0 / width + 1) * width;
-      SEGENV.aux1 = (SEGENV.aux1 % width) + (SEGENV.aux1 / width + 1) * width;
+      aux0 = (aux0 % width) + (aux0 / width + 1) * width;
+      aux1 = (aux1 % width) + (aux1 / width + 1) * width;
     } else {
       //shift all leds left
-      uint32_t ctemp = SEGMENT.getPixelColor(0);
-      for (unsigned i = 0; i < SEGLEN - 1; i++) {
-        SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1));
+      uint32_t ctemp = env.seg().getPixelColor(0);
+      for (unsigned i = 0; i < env.seglen() - 1; i++) {
+        env.seg().setPixelColor(i, env.seg().getPixelColor(i+1));
       }
-      SEGMENT.setPixelColor(SEGLEN -1, ctemp); // wrap around
-      SEGENV.aux0++;  // increase spark index
-      SEGENV.aux1++;
+      env.seg().setPixelColor(env.seglen() -1, ctemp); // wrap around
+      aux0++;  // increase spark index
+      aux1++;
     }
-    if (SEGENV.aux0 == 0) SEGENV.aux0 = UINT16_MAX; // reset previous spark position
-    if (SEGENV.aux1 == 0) SEGENV.aux0 = UINT16_MAX; // reset previous spark position
-    if (SEGENV.aux0 >= width*height) SEGENV.aux0 = 0;     // ignore
-    if (SEGENV.aux1 >= width*height) SEGENV.aux1 = 0;
+    if (aux0 == 0) aux0 = UINT16_MAX; // reset previous spark position
+    if (aux1 == 0) aux0 = UINT16_MAX; // reset previous spark position
+    if (aux0 >= width*height) aux0 = 0;     // ignore
+    if (aux1 >= width*height) aux1 = 0;
   }
-  return mode_fireworks();
+  return mode_fireworks(env); 
 }
-static const char _data_FX_MODE_RAIN[] PROGMEM = "Rain@!,Spawning rate;!,!;!;12;ix=128,pal=0";
+};
+const char Fx_Rain::FX_data[] PROGMEM = "1 Rain FX@!,Spawning rate;!,!;!;12;ix=128,pal=0";
+
 
 /*
  * Fire flicker function
@@ -10123,6 +10182,159 @@ static const char _data_FX_MODE_PS_SONICSTREAM[] PROGMEM = "PS Sonic Stream@!,!,
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// backup of converted effects examples
+
+/*
+ * Lights all LEDs up in one random color. Then switches them
+ * to the next random color.
+ */
+uint16_t mode_random_color(void) {
+  uint32_t cycleTime = 200 + (255 - SEGMENT.speed)*50;
+  uint32_t it = strip.now / cycleTime;
+  uint32_t rem = strip.now % cycleTime;
+  unsigned fadedur = (cycleTime * SEGMENT.intensity) >> 8;
+
+  uint32_t fade = 255;
+  if (fadedur) {
+    fade = (rem * 255) / fadedur;
+    if (fade > 255) fade = 255;
+  }
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random8();
+    SEGENV.step = 2;
+  }
+  if (it != SEGENV.step) //new color
+  {
+    SEGENV.aux1 = SEGENV.aux0;
+    SEGENV.aux0 = get_random_wheel_index(SEGENV.aux0); //aux0 will store our random color wheel index
+    SEGENV.step = it;
+  }
+
+  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux1), SEGMENT.color_wheel(SEGENV.aux0), uint8_t(fade)));
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "1 Random Colors org@!,Fade time;;!;01";
+
+
+/*
+ * Blink several LEDs in random colors on, reset, repeat.
+ * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ */
+uint16_t mode_twinkle(void) {
+  SEGMENT.fade_out(224);
+
+  uint32_t cycleTime = 20 + (255 - SEGMENT.speed)*5;
+  uint32_t it = strip.now / cycleTime;
+  if (it != SEGENV.step)
+  {
+    unsigned maxOn = map(SEGMENT.intensity, 0, 255, 1, SEGLEN); // make sure at least one LED is on
+    if (SEGENV.aux0 >= maxOn)
+    {
+      SEGENV.aux0 = 0;
+      SEGENV.aux1 = hw_random(); //new seed for our PRNG
+    }
+    SEGENV.aux0++;
+    SEGENV.step = it;
+  }
+
+  unsigned PRNG16 = SEGENV.aux1;
+
+  for (unsigned i = 0; i < SEGENV.aux0; i++)
+  {
+    PRNG16 = (uint16_t)(PRNG16 * 2053) + 13849; // next 'random' number
+    uint32_t p = (uint32_t)SEGLEN * (uint32_t)PRNG16;
+    unsigned j = p >> 16;
+    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_TWINKLE[] PROGMEM = "1 Twinkle org@!,!;!,!;!;;m12=0"; //pixels
+
+
+/*
+ * Fireworks function.
+ */
+uint16_t mode_fireworks() {
+  if (SEGLEN <= 1) return mode_static();
+  const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
+  const uint16_t height = SEG_H;
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = UINT16_MAX;
+    SEGENV.aux1 = UINT16_MAX;
+  }
+  SEGMENT.fade_out(128);
+
+  uint8_t x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored in upper and lower byte
+  if (!SEGENV.step) {
+    // fireworks mode (blur flares)
+    bool valid1 = (SEGENV.aux0 < width*height);
+    bool valid2 = (SEGENV.aux1 < width*height);
+    uint32_t sv1 = 0, sv2 = 0;
+    if (valid1) sv1 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux0); // get spark color
+    if (valid2) sv2 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux1);
+    SEGMENT.blur(16); // used in mode_rain()
+    if (valid1) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv1); else SEGMENT.setPixelColor(SEGENV.aux0, sv1); } // restore spark color after blur
+    if (valid2) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv2); else SEGMENT.setPixelColor(SEGENV.aux1, sv2); } // restore old spark color after blur
+  }
+
+  for (int i=0; i<max(1, width/20); i++) {
+    if (hw_random8(129 - (SEGMENT.intensity >> 1)) == 0) {
+      uint16_t index = hw_random16(width*height);
+      x = index % width;
+      y = index / width;
+      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, false, 0);
+      if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, col);
+      else                SEGMENT.setPixelColor(index, col);
+      SEGENV.aux1 = SEGENV.aux0;  // old spark
+      SEGENV.aux0 = index;        // remember where spark occurred
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "1 Fireworks org@,Frequency;!,!;!;12;ix=192,pal=11";
+
+
+//Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
+uint16_t mode_rain() {
+  if (SEGLEN <= 1) return mode_static();
+  const unsigned width  = SEG_W;
+  const unsigned height = SEG_H;
+  SEGENV.step += FRAMETIME;
+  if (SEGENV.call && SEGENV.step > SPEED_FORMULA_L) {
+    SEGENV.step = 1;
+    if (SEGMENT.is2D()) {
+      //uint32_t ctemp[width];
+      //for (int i = 0; i<width; i++) ctemp[i] = SEGMENT.getPixelColorXY(i, height-1);
+      SEGMENT.move(6, 1, true);  // move all pixels down
+      //for (int i = 0; i<width; i++) SEGMENT.setPixelColorXY(i, 0, ctemp[i]); // wrap around
+      SEGENV.aux0 = (SEGENV.aux0 % width) + (SEGENV.aux0 / width + 1) * width;
+      SEGENV.aux1 = (SEGENV.aux1 % width) + (SEGENV.aux1 / width + 1) * width;
+    } else {
+      //shift all leds left
+      uint32_t ctemp = SEGMENT.getPixelColor(0);
+      for (unsigned i = 0; i < SEGLEN - 1; i++) {
+        SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1));
+      }
+      SEGMENT.setPixelColor(SEGLEN -1, ctemp); // wrap around
+      SEGENV.aux0++;  // increase spark index
+      SEGENV.aux1++;
+    }
+    if (SEGENV.aux0 == 0) SEGENV.aux0 = UINT16_MAX; // reset previous spark position
+    if (SEGENV.aux1 == 0) SEGENV.aux0 = UINT16_MAX; // reset previous spark position
+    if (SEGENV.aux0 >= width*height) SEGENV.aux0 = 0;     // ignore
+    if (SEGENV.aux1 >= width*height) SEGENV.aux1 = 0;
+  }
+  return mode_fireworks();
+}
+static const char _data_FX_MODE_RAIN[] PROGMEM = "1 Rain org@!,Spawning rate;!,!;!;12;ix=128,pal=0";
+
+
+
 // add (or replace reserved) effect mode and data into vector
 // use id==255 to find unallocated gaps (with "Reserved" data string)
 // if vector size() is smaller than id (single) data is appended at the end (regardless of id)
@@ -10162,6 +10374,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
   addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
+  addWledEffect<Fx_RandomColor>(*this);
   addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
@@ -10174,6 +10387,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
   addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
+  addWledEffect<Fx_Twinkle>(*this);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
@@ -10197,9 +10411,11 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
+  addWledEffect<Fx_Rain>(*this);
   addEffect(FX_MODE_PRIDE_2015, &mode_pride_2015, _data_FX_MODE_PRIDE_2015);
   addEffect(FX_MODE_COLORWAVES, &mode_colorwaves, _data_FX_MODE_COLORWAVES);
   addEffect(FX_MODE_FIREWORKS, &mode_fireworks, _data_FX_MODE_FIREWORKS);
+  addWledEffect<Fx_Fireworks>(*this);
   addEffect(FX_MODE_TETRIX, &mode_tetrix, _data_FX_MODE_TETRIX);
   addEffect(FX_MODE_FIRE_FLICKER, &mode_fire_flicker, _data_FX_MODE_FIRE_FLICKER);
   addEffect(FX_MODE_GRADIENT, &mode_gradient, _data_FX_MODE_GRADIENT);

@@ -11,6 +11,7 @@
 */
 #include "wled.h"
 #include "FX.h"
+#include "WledEffect.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
 
@@ -95,6 +96,7 @@ uint8_t  Segment::_clipStopY = 1;
 Segment::Segment(const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  effect.release(); // leave the effect at the origin; this copy shall create a new one
   _t = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
@@ -107,6 +109,7 @@ Segment::Segment(const Segment &orig) {
 Segment::Segment(Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  orig.effect.release(); // grabbed the effect from the origin; don't delete it there
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
   orig.data = nullptr;
@@ -124,6 +127,7 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
+    effect.release(); // leave the effect at the origin; this copy shall create a new one
     data = nullptr;
     _dataLen = 0;
     // copy source data
@@ -141,6 +145,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     stopTransition();
     deallocateData(); // free old runtime data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
+    orig.effect.release(); // grabbed the effect from the origin; don't delete it there
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
@@ -175,6 +180,7 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
 }
 
 void IRAM_ATTR_YN Segment::deallocateData() {
+  effect.reset();
   if (!data) { _dataLen = 0; return; }
   //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
@@ -197,6 +203,7 @@ void IRAM_ATTR_YN Segment::deallocateData() {
 void Segment::resetIfRequired() {
   if (!reset) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
+  effect.reset();
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
