@@ -145,11 +145,7 @@ protected:
   virtual uint16_t showWledEffect(FxEnv &env) = 0;
 
 private:
-  static uint16_t render_function(Segment &seg, uint32_t now, uint16_t defaultFrametime)
-  {
-    const uint16_t frametime = seg.effect->render(seg, now);
-    return frametime ? frametime : defaultFrametime;
-  }
+  static uint16_t render_function(Segment &seg, uint32_t now, uint16_t defaultFrametime);
 
 private:
   FxEnv _env;

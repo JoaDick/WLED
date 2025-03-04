@@ -11,6 +11,9 @@
  */
 //#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
+// quick'n'dirty...
+#define USERMOD_EFFECT_PROFILER
+
 #ifdef USERMOD_BATTERY
   #include "../usermods/Battery/usermod_v2_Battery.h"
 #endif
@@ -254,6 +257,10 @@
   #include "../usermods/usermod_v2_brightness_follow_sun/usermod_v2_brightness_follow_sun.h"
 #endif
 
+#ifdef USERMOD_EFFECT_PROFILER
+  #include "../usermods/EffectProfiler/usermod_EffectProfiler.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -493,5 +500,9 @@ void registerUsermods()
 
   #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
   UsermodManager::add(new UsermodBrightnessFollowSun());
+  #endif
+
+  #ifdef USERMOD_EFFECT_PROFILER
+  UsermodManager::add(new UmEffectProfiler());
   #endif
 }

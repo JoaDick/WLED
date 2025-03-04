@@ -13,6 +13,7 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
+#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
   #include "FXparticleSystem.h"
@@ -10191,6 +10192,8 @@ static const char _data_RESERVED[] PROGMEM = "RSVD";
  * to the next random color.
  */
 uint16_t mode_random_color(void) {
+  EffectProfilerTrigger profiler;
+
   uint32_t cycleTime = 200 + (255 - SEGMENT.speed)*50;
   uint32_t it = strip.now / cycleTime;
   uint32_t rem = strip.now % cycleTime;
@@ -10224,6 +10227,8 @@ static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "1 Random Colors org@!,
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
 uint16_t mode_twinkle(void) {
+  EffectProfilerTrigger profiler;
+
   SEGMENT.fade_out(224);
 
   uint32_t cycleTime = 20 + (255 - SEGMENT.speed)*5;
@@ -10259,6 +10264,8 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "1 Twinkle org@!,!;!,!;!;;m1
  * Fireworks function.
  */
 uint16_t mode_fireworks() {
+  EffectProfilerTrigger profiler;
+
   if (SEGLEN <= 1) return mode_static();
   const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
   const uint16_t height = SEG_H;
@@ -10301,6 +10308,8 @@ static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "1 Fireworks org@,Frequenc
 
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 uint16_t mode_rain() {
+  EffectProfilerTrigger profiler;
+
   if (SEGLEN <= 1) return mode_static();
   const unsigned width  = SEG_W;
   const unsigned height = SEG_H;

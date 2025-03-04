@@ -7,6 +7,16 @@
 
 #include "wled.h"
 #include "WledEffect.h"
+#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
+
+//--------------------------------------------------------------------------------------------------
+
+uint16_t WledEffect::render_function(Segment &seg, uint32_t now, uint16_t defaultFrametime)
+{
+  EffectProfilerTrigger profiler;
+  const uint16_t frametime = seg.effect->render(seg, now);
+  return frametime ? frametime : defaultFrametime;
+}
 
 //--------------------------------------------------------------------------------------------------
 
