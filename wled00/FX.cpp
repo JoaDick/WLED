@@ -112,7 +112,66 @@ static const char _data_FX_mode_compare_1D[] PROGMEM = "1 class:mode_fct 1D@;";
 
 //--------------------------------------------------------------------------------------------------
 
+class Fx_Compare_2D : public WledFxBase
+{
+public:
+  explicit Fx_Compare_2D(FxSetup &fxs) : WledFxBase(fxs) {}
 
+  uint16_t showEffect(FxEnv &env) override
+  {
+    for (unsigned x = 0; x < env.segW(); ++x)
+      for (unsigned y = 0; y < env.segH(); ++y)
+        env.seg().setPixelColorXY(x, y, hw_random8() / 16, hw_random8() / 16, hw_random8() / 16);
+
+    uint32_t lastColor = env.seg().getPixelColorXY(env.segW() - 1, env.segH() - 1);
+    for (unsigned x = 0; x < env.segW(); ++x)
+      for (unsigned y = 0; y < env.segH(); ++y)
+      {
+        uint32_t temp = env.seg().getPixelColorXY(x, y);
+        env.seg().setPixelColorXY(x, y, lastColor);
+        lastColor = temp;
+      }
+
+    return 0;
+  }
+};
+
+uint16_t mode_compare_ref_2D()
+{
+  for (unsigned x = 0; x < SEG_W; ++x)
+    for (unsigned y = 0; y < SEG_H; ++y)
+      SEGMENT.setPixelColorXY(x, y, hw_random8() / 16, hw_random8() / 16, hw_random8() / 16);
+
+  uint32_t lastColor = SEGMENT.getPixelColor(SEGLEN - 1);
+  for (unsigned x = 0; x < SEG_W; ++x)
+    for (unsigned y = 0; y < SEG_H; ++y)
+    {
+      uint32_t temp = SEGMENT.getPixelColorXY(x, y);
+      SEGMENT.setPixelColorXY(x, y, lastColor);
+      lastColor = temp;
+    }
+
+  return FRAMETIME;
+}
+
+uint16_t mode_compare_2D()
+{
+  EffectProfilerTrigger profiler;
+  if (profiler.mustRun_A())
+  {
+    profiler.start_A();
+    WledEffect::mode_function<Fx_Compare_2D>();
+    profiler.stop();
+  }
+  else
+  {
+    profiler.start_B();
+    mode_compare_ref_2D();
+    profiler.stop();
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_mode_compare_2D[] PROGMEM = "1 class:mode_fct 2D@;;;2";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -369,6 +428,8 @@ class Fx_RandomColor : public WledFxBase
   explicit Fx_RandomColor(FxSetup &fxs) : WledFxBase(fxs) {}
 
 uint16_t showEffect(FxEnv &env) override {
+  EffectProfilerTrigger profiler;
+
   uint32_t cycleTime = 200 + (255 - env.seg().speed)*50;
   uint32_t it = env.now() / cycleTime;
   uint32_t rem = env.now() % cycleTime;
@@ -694,7 +755,10 @@ class Fx_Twinkle : public WledFxBase
 
   explicit Fx_Twinkle(FxSetup &fxs) : WledFxBase(fxs) {}
 
-  uint16_t showEffect(FxEnv &env) override { return mode_twinkle(); }
+  uint16_t showEffect(FxEnv &env) override {
+    EffectProfilerTrigger profiler;
+    return mode_twinkle();
+  }
 
  private:
 // ----- start of the unmodified effect function -----
@@ -1402,7 +1466,10 @@ public:
 
   explicit Fx_Fireworks(FxSetup &fxs) : FireworksBase(fxs) {}
 
-  uint16_t showEffect(FxEnv &env) override { return mode_fireworks(env); }
+  uint16_t showEffect(FxEnv &env) override { 
+    EffectProfilerTrigger profiler;
+    return mode_fireworks(env);
+  }
 };
 const char Fx_Fireworks::FX_data[] PROGMEM = "1 Fireworks FX@,Frequency;!,!;!;12;ix=192,pal=11";
 
@@ -1416,6 +1483,8 @@ public:
   explicit Fx_Rain(FxSetup &fxs) : FireworksBase(fxs) {}
 
 uint16_t showEffect(FxEnv &env) override {
+  EffectProfilerTrigger profiler;
+  
   if (env.seglen() <= 1) return showFallbackEffect(env);
   step += FRAMETIME;
   if (env.seg().call && step > SPEED_FORMULA_L) {
@@ -10442,7 +10511,8 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
-  addEffect(FX_MODE_BLINK, &mode_compare_1D, _data_FX_mode_compare_1D);
+  addEffect(AutoSelectEffectID, &mode_compare_1D, _data_FX_mode_compare_1D);
+  addEffect(AutoSelectEffectID, &mode_compare_2D, _data_FX_mode_compare_2D);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);

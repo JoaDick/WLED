@@ -7,7 +7,7 @@
 
 #include "wled.h"
 #include "WledEffect.h"
-// #include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
+#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
 
 //--------------------------------------------------------------------------------------------------
 
