@@ -51,6 +51,71 @@
   fftBin        =  (float*)   um_data->u_data[8];
 */
 
+//--------------------------------------------------------------------------------------------------
+
+class Fx_Compare_1D : public WledFxBase
+{
+public:
+  explicit Fx_Compare_1D(FxSetup &fxs) : WledFxBase(fxs) {}
+
+  uint16_t showEffect(FxEnv &env) override
+  {
+    for (unsigned i = 0; i < env.seglen(); ++i)
+      env.seg().setPixelColor(i, hw_random8() / 16, hw_random8() / 16, hw_random8() / 16);
+
+    uint32_t lastColor = env.seg().getPixelColor(env.seglen() - 1);
+    for (unsigned i = 0; i < env.seglen(); ++i)
+    {
+      uint32_t temp = env.seg().getPixelColor(i);
+      env.seg().setPixelColor(i, lastColor);
+      lastColor = temp;
+    }
+
+    return 0;
+  }
+};
+
+uint16_t mode_compare_ref_1D()
+{
+  for (unsigned i = 0; i < SEGLEN; ++i)
+    SEGMENT.setPixelColor(i, hw_random8() / 16, hw_random8() / 16, hw_random8() / 16);
+
+  uint32_t lastColor = SEGMENT.getPixelColor(SEGLEN - 1);
+  for (unsigned i = 0; i < SEGLEN; ++i)
+  {
+    uint32_t temp = SEGMENT.getPixelColor(i);
+    SEGMENT.setPixelColor(i, lastColor);
+    lastColor = temp;
+  }
+
+  return FRAMETIME;
+}
+
+uint16_t mode_compare_1D()
+{
+  EffectProfilerTrigger profiler;
+  if (profiler.mustRun_A())
+  {
+    profiler.start_A();
+    WledEffect::mode_function<Fx_Compare_1D>();
+    profiler.stop();
+  }
+  else
+  {
+    profiler.start_B();
+    mode_compare_ref_1D();
+    profiler.stop();
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_mode_compare_1D[] PROGMEM = "1 class:mode_fct 1D@;";
+
+//--------------------------------------------------------------------------------------------------
+
+
+
+//--------------------------------------------------------------------------------------------------
+
 #define IBN 5100
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
@@ -10377,6 +10442,7 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
+  addEffect(FX_MODE_BLINK, &mode_compare_1D, _data_FX_mode_compare_1D);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
