@@ -460,6 +460,7 @@ typedef struct Segment {
       uint32_t _callT;
       uint8_t *_dataT;
       unsigned _dataLenT;
+      WledEffectPtr _effectT;
       TemporarySegmentData()
         : _dataT(nullptr) // just in case...
         , _dataLenT(0)
@@ -653,7 +654,7 @@ typedef struct Segment {
     inline void handleTransition() { updateTransitionProgress(); if (progress() == 0xFFFFU) stopTransition(); }
     #ifndef WLED_DISABLE_MODE_BLEND
     void     swapSegenv(tmpsegd_t &tmpSegD);    // copies segment data into specifed buffer, if buffer is not a transition buffer, segment data is overwritten from transition buffer
-    void     restoreSegenv(const tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
+    void     restoreSegenv(tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
     #endif
     [[gnu::hot]] void updateTransitionProgress();            // set current progression of transition
     inline uint16_t progress() const { return Segment::_transitionprogress; }  // transition progression between 0-65535

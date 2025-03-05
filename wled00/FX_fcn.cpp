@@ -97,6 +97,9 @@ Segment::Segment(const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   effect.release(); // leave the effect at the origin; this copy shall create a new one
+#if (WLED_EFFECT_ENABLE_CLONE)
+  if(orig.effect) { effect = orig.effect->clone(); }
+#endif
   _t = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
@@ -128,6 +131,9 @@ Segment& Segment::operator= (const Segment &orig) {
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
     effect.release(); // leave the effect at the origin; this copy shall create a new one
+#if (WLED_EFFECT_ENABLE_CLONE)
+    if(orig.effect) { effect = orig.effect->clone(); }
+#endif
     data = nullptr;
     _dataLen = 0;
     // copy source data
@@ -279,6 +285,9 @@ void Segment::startTransition(uint16_t dur) {
 #ifndef WLED_DISABLE_MODE_BLEND
   swapSegenv(_t->_segT);
   _t->_modeT          = mode;
+#if (WLED_EFFECT_ENABLE_CLONE)
+  _t->_segT._effectT  = effect ? effect->clone() : nullptr;
+#endif
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
   if (_dataLen > 0 && data) {
@@ -357,10 +366,13 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
     call      = _t->_segT._callT;
     data      = _t->_segT._dataT;
     _dataLen  = _t->_segT._dataLenT;
+#if (WLED_EFFECT_ENABLE_CLONE)
+    effect.swap(_t->_segT._effectT);
+#endif
   }
 }
 
-void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
+void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
   //DEBUG_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   if (isInTransition() && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
@@ -388,6 +400,9 @@ void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
   call      = tmpSeg._callT;
   data      = tmpSeg._dataT;
   _dataLen  = tmpSeg._dataLenT;
+#if (WLED_EFFECT_ENABLE_CLONE)
+  effect.swap(tmpSeg._effectT);
+#endif
 }
 #endif
 

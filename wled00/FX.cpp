@@ -58,6 +58,11 @@ class Fx_Compare_1D : public WledFxBase
 public:
   explicit Fx_Compare_1D(FxSetup &fxs) : WledFxBase(fxs) {}
 
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
   uint16_t showEffect(FxEnv &env) override
   {
     for (unsigned i = 0; i < env.seglen(); ++i)
@@ -116,6 +121,11 @@ class Fx_Compare_2D : public WledFxBase
 {
 public:
   explicit Fx_Compare_2D(FxSetup &fxs) : WledFxBase(fxs) {}
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
 
   uint16_t showEffect(FxEnv &env) override
   {
@@ -421,11 +431,16 @@ static const char _data_FX_MODE_COLOR_SWEEP_RANDOM[] PROGMEM = "Sweep Random@!;;
  */
 class Fx_RandomColor : public WledFxBase
 {
- public:
+public:
   static const EffectID FX_id = AutoSelectEffectID;
   static const char     FX_data[];
 
   explicit Fx_RandomColor(FxSetup &fxs) : WledFxBase(fxs) {}
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
 
 uint16_t showEffect(FxEnv &env) override {
   EffectProfilerTrigger profiler;
@@ -749,18 +764,22 @@ static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width;!,!;!";
  */
 class Fx_Twinkle : public WledFxBase
 {
- public:
+public:
   static const EffectID FX_id = AutoSelectEffectID;
   static const char     FX_data[];
 
   explicit Fx_Twinkle(FxSetup &fxs) : WledFxBase(fxs) {}
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
 
   uint16_t showEffect(FxEnv &env) override {
     EffectProfilerTrigger profiler;
     return mode_twinkle();
   }
 
- private:
 // ----- start of the unmodified effect function -----
 uint16_t mode_twinkle(void) {
   SEGMENT.fade_out(224);
@@ -1466,7 +1485,13 @@ public:
 
   explicit Fx_Fireworks(FxSetup &fxs) : FireworksBase(fxs) {}
 
-  uint16_t showEffect(FxEnv &env) override { 
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return nullptr; } // assuming this is non-cloneable (as example)
+  // WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
+  uint16_t showEffect(FxEnv &env) override {
     EffectProfilerTrigger profiler;
     return mode_fireworks(env);
   }
@@ -1482,9 +1507,14 @@ public:
 
   explicit Fx_Rain(FxSetup &fxs) : FireworksBase(fxs) {}
 
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
 uint16_t showEffect(FxEnv &env) override {
   EffectProfilerTrigger profiler;
-  
+
   if (env.seglen() <= 1) return showFallbackEffect(env);
   step += FRAMETIME;
   if (env.seg().call && step > SPEED_FORMULA_L) {
