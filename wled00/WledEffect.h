@@ -282,3 +282,101 @@ private:
 };
 
 //--------------------------------------------------------------------------------------------------
+
+// DRAFT: Create effects via factory.
+
+class FxFactory;
+using FxFactoryPtr = std::unique_ptr<FxFactory>;
+
+class FxFactory
+{
+public:
+  FxFactory(const FxFactory &) = delete;
+  FxFactory(FxFactory &&) = delete;
+  FxFactory &operator=(const FxFactory &) = delete;
+  FxFactory &operator=(FxFactory &&) = delete;
+  virtual ~FxFactory() = default;
+
+  EffectID FX_id() const { return _FX_id; }
+  const char *FX_data() const { return _FX_data; }
+  WledEffectPtr makeEffect(FxSetup &fxs) { return do_makeEffect(fxs); }
+
+protected:
+  FxFactory(EffectID FX_id, const char *FX_data) : _FX_id(FX_id), _FX_data(FX_data) {}
+  virtual WledEffectPtr do_makeEffect(FxSetup &fxs) = 0;
+
+private:
+  EffectID _FX_id;
+  const char *_FX_data;
+};
+
+template <class FX_TYPE>
+class DefaultFxFactory : public FxFactory
+{
+public:
+  static FxFactoryPtr create(EffectID FX_id, const char *FX_data)
+  {
+    return FxFactoryPtr(new (std::nothrow) DefaultFxFactory<FX_TYPE>(FX_id, FX_data));
+  }
+
+private:
+  DefaultFxFactory(EffectID FX_id, const char *FX_data) : FxFactory(FX_id, FX_data) {}
+  WledEffectPtr do_makeEffect(FxSetup &fxs) override { return FX_TYPE::create(fxs); }
+};
+
+template <class FX_TYPE>
+FxFactoryPtr makeFactory(EffectID FX_id, const char *FX_data)
+{
+  return DefaultFxFactory<FX_TYPE>::create(FX_id, FX_data);
+}
+
+template <class FX_TYPE>
+FxFactoryPtr makeFactory()
+{
+  return makeFactory<FX_TYPE>(FX_TYPE::FX_id, FX_TYPE::FX_data);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+// DRAFT: Encapsulate existing mode_XYZ() functions into WledEffect class.
+
+using FxModeFct = uint16_t (*)();
+
+class ModeFctFxFactory : public FxFactory
+{
+public:
+  static FxFactoryPtr create(FxModeFct FX_fct, EffectID FX_id, const char *FX_data)
+  {
+    return FxFactoryPtr(new (std::nothrow) ModeFctFxFactory(FX_fct, FX_id, FX_data));
+  }
+
+private:
+  ModeFctFxFactory(FxModeFct FX_fct, EffectID FX_id, const char *FX_data)
+      : FxFactory(FX_id, FX_data), _FX_fct(FX_fct) {}
+
+  class FctWrapper : public WledEffect
+  {
+    FxModeFct _FX_fct;
+#if (WLED_EFFECT_ENABLE_CLONE)
+    WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+    uint16_t showWledEffect(FxEnv &) override { return _FX_fct(); }
+    FctWrapper(FxSetup &fxs, FxModeFct FX_fct) : WledEffect(fxs), _FX_fct(FX_fct) {}
+
+  public:
+    static WledEffectPtr create(FxSetup &fxs, FxModeFct FX_fct)
+    {
+      return WledEffectPtr(new (std::nothrow) FctWrapper(fxs, FX_fct));
+    }
+  };
+
+  WledEffectPtr do_makeEffect(FxSetup &fxs) override { return FctWrapper::create(fxs, _FX_fct); }
+  FxModeFct _FX_fct;
+};
+
+inline FxFactoryPtr makeFactory(FxModeFct FX_fct, EffectID FX_id, const char *FX_data)
+{
+  return ModeFctFxFactory::create(FX_fct, FX_id, FX_data);
+}
+
+//--------------------------------------------------------------------------------------------------
