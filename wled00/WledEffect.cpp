@@ -7,39 +7,23 @@
 
 #include "wled.h"
 #include "WledEffect.h"
-#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
-
-//--------------------------------------------------------------------------------------------------
-
-uint16_t WledEffect::render_function(Segment &seg, uint32_t now, uint16_t defaultFrametime)
-{
-  // EffectProfilerTrigger profiler;
-  const uint16_t frametime = seg.effect->render(seg, now);
-  return frametime ? frametime : defaultFrametime;
-}
 
 //--------------------------------------------------------------------------------------------------
 
 uint16_t WledFxBase::showWledEffect(FxEnv &env)
 {
-  // We have to be recreated from scratch when any essential property of the Segment has changed
-  // during runtime. This is the case e.g. when "Mirror effect" setting is changed.
   if (mustRecreate(env))
   {
-    // kill current effect; a new one will be created upon the next frame
-    env.seg().effect.reset();
-    // don't change the Segment during this frame
-    return 0;
+    // We have to be recreated from scratch when any essential property of the Segment has changed
+    // during runtime. This is the case e.g. when "Mirror effect" setting is changed.
+    return pleaseKillMe(env);
   }
-
   if (env.seg().call == 0)
   {
     initEffect(env);
   }
   return showEffect(env);
 }
-
-void WledFxBase::initEffect(FxEnv &) {}
 
 bool WledFxBase::mustRecreate(const FxEnv &env) const
 {
@@ -49,8 +33,9 @@ bool WledFxBase::mustRecreate(const FxEnv &env) const
   {
     return true;
   }
-
   return false;
 }
+
+void WledFxBase::initEffect(FxEnv &) {}
 
 //--------------------------------------------------------------------------------------------------

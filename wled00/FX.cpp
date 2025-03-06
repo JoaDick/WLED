@@ -102,7 +102,7 @@ uint16_t mode_compare_1D()
   if (profiler.mustRun_A())
   {
     profiler.start_A();
-    WledEffect::mode_function<Fx_Compare_1D>();
+    mode_WledEffect<Fx_Compare_1D>();
     profiler.stop();
   }
   else
@@ -170,7 +170,7 @@ uint16_t mode_compare_2D()
   if (profiler.mustRun_A())
   {
     profiler.start_A();
-    WledEffect::mode_function<Fx_Compare_2D>();
+    mode_WledEffect<Fx_Compare_2D>();
     profiler.stop();
   }
   else
