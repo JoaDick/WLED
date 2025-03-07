@@ -9,6 +9,7 @@
 
 #include "FX.h"
 
+// effect cloning is most likely needed by https://github.com/wled/WLED/issues/4550
 #define WLED_EFFECT_ENABLE_CLONE 1
 
 //--------------------------------------------------------------------------------------------------
@@ -314,13 +315,16 @@ template <class FX_TYPE>
 class DefaultFxFactory : public FxFactory
 {
 public:
+  // used by makeFactory() below - when the factory shall be stored in a std::vector<FxFactoryPtr>
   static FxFactoryPtr create(EffectID FX_id, const char *FX_data)
   {
     return FxFactoryPtr(new (std::nothrow) DefaultFxFactory<FX_TYPE>(FX_id, FX_data));
   }
 
-private:
+  // used by REGISTER_EFFECT(MyEffectClass, id, data) below - to be preferred
   DefaultFxFactory(EffectID FX_id, const char *FX_data) : FxFactory(FX_id, FX_data) {}
+
+private:
   WledEffectPtr do_makeEffect(FxSetup &fxs) override { return FX_TYPE::create(fxs); }
 };
 
@@ -336,6 +340,13 @@ FxFactoryPtr makeFactory()
   return makeFactory<FX_TYPE>(FX_TYPE::FX_id, FX_TYPE::FX_data);
 }
 
+// same linker magic as for REGISTER_USERMOD() from there: https://github.com/wled/WLED/pull/4480
+// see also "thoughts 1" in this comment: https://github.com/wled/WLED/pull/4549#issuecomment-2695943205
+// #define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_EFFECT(FX_CLASS, FX_ID, FX_DATA)     \
+  static FX_CLASS factory_##FX_CLASS(FX_ID, FX_DATA); \
+  FxFactory *const fx_factory_##FX_CLASS __attribute__((__section__(".dtors.tbl.effects.1"), used)) = &factory_##FX_CLASS
+
 //--------------------------------------------------------------------------------------------------
 
 // DRAFT: Encapsulate existing mode_XYZ() functions into WledEffect class.
@@ -345,15 +356,17 @@ using FxModeFct = uint16_t (*)();
 class ModeFctFxFactory : public FxFactory
 {
 public:
+  // used by makeFactory() below - when the factory shall be stored in a std::vector<FxFactoryPtr>
   static FxFactoryPtr create(FxModeFct FX_fct, EffectID FX_id, const char *FX_data)
   {
     return FxFactoryPtr(new (std::nothrow) ModeFctFxFactory(FX_fct, FX_id, FX_data));
   }
 
-private:
+  // used by REGISTER_MODE_FCT(mode_fct, id, data) below - to be preferred
   ModeFctFxFactory(FxModeFct FX_fct, EffectID FX_id, const char *FX_data)
       : FxFactory(FX_id, FX_data), _FX_fct(FX_fct) {}
 
+private:
   class FctWrapper : public WledEffect
   {
     FxModeFct _FX_fct;
@@ -378,5 +391,12 @@ inline FxFactoryPtr makeFactory(FxModeFct FX_fct, EffectID FX_id, const char *FX
 {
   return ModeFctFxFactory::create(FX_fct, FX_id, FX_data);
 }
+
+// same linker magic as for REGISTER_USERMOD() from there: https://github.com/wled/WLED/pull/4480
+// see also "thoughts 2" in this comment: https://github.com/wled/WLED/pull/4549#issuecomment-2695943205
+// #define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_MODE_FCT(MODE_FCT, FX_ID, FX_DATA)                      \
+  static ModeFctFxFactory factory_##MODE_FCT(&MODE_FCT, FX_ID, FX_DATA); \
+  FxFactory *const fx_factory_##MODE_FCT __attribute__((__section__(".dtors.tbl.effects.1"), used)) = &factory_##MODE_FCT
 
 //--------------------------------------------------------------------------------------------------
