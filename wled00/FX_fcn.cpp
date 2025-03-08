@@ -620,18 +620,7 @@ Segment &Segment::setOpacity(uint8_t o) {
 
 Segment &Segment::setOption(uint8_t n, bool val) {
   bool prevOn = on;
-  if (n == SEG_OPTION_ON && val != prevOn) {
-#if (WLED_EFFECT_ENABLE_CLONE)
-    if(effect) {
-      oldEffect = effect->clone();
-      if(oldEffect) {
-        effect.swap(oldEffect);
-        isModeTransition = true;
-      }
-    }
-#endif
-    startTransition(strip.getTransition()); // start transition prior to change
-  }
+  if (n == SEG_OPTION_ON && val != prevOn) startTransition(strip.getTransition()); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   if (!(n == SEG_OPTION_SELECTED || n == SEG_OPTION_RESET)) stateChanged = true; // send UDP/WS broadcast

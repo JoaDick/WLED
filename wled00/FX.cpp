@@ -5074,6 +5074,161 @@ uint16_t mode_FlowStripe(void) {
 static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;";
 
 
+//////////////////////////////
+//     Color Clouds         //
+//////////////////////////////
+
+/** Softly floating colorful clouds.
+ * Ported to WLED from https://github.com/JoaDick/EyeCandy/blob/master/ColorClouds.h
+ */
+class ColorCloudsEngine
+{
+public:
+  ColorCloudsEngine() { setNormal(); }
+
+  uint16_t show(FxEnv &env)
+  {
+    const uint8_t hueOffset = beat88(64) >> 8;
+
+    for (uint32_t i = 0; i < env.seglen(); i++)
+    {
+      const uint32_t hueX = i * hueSqueeze * 16;
+      const uint32_t hueT = env.now() * (1 + hueSpeed) / 4;
+      uint8_t hue = inoise16(hueX, hueT) >> 7;
+      hue += hueOffset;
+      if (moreRed)
+      {
+        hue = cos8(128 + hue / 2);
+      }
+
+      const uint32_t volX = i * volSqueeze * 64;
+      const uint32_t volT = env.now() * (1 + volSpeed) / 8;
+      long vol = inoise16(volX, volT);
+      vol = map(vol, 25000, 47500, 0, 255);
+      vol = constrain(vol, 0, 255);
+
+      CRGB pixel = CHSV(hue, 255, vol);
+      if (int(pixel.r) + pixel.g + pixel.b <= 1)
+      {
+        pixel = CRGB::Black;
+      }
+
+      env.seg().setPixelColor(i, pixel);
+    }
+
+    return 0;
+  }
+
+  /// Higher values make the color change faster.
+  uint8_t hueSpeed;
+
+  /// Higher values "squeeze" more color gradients on the LED strip.
+  uint8_t hueSqueeze;
+
+  /// Higher values make the clouds change faster.
+  uint8_t volSpeed;
+
+  /// Higher values make more clouds (but smaller ones).
+  uint8_t volSqueeze;
+
+  /// Put more emphasis on the red'ish colors when true.
+  bool moreRed = false;
+
+  void setNormal()
+  {
+    hueSpeed = 64;
+    hueSqueeze = 64;
+    volSpeed = 64;
+    volSqueeze = 64;
+  }
+
+  void setAmbient()
+  {
+    hueSpeed = 3;
+    hueSqueeze = 25;
+    volSpeed = 25;
+    volSqueeze = 45;
+  }
+
+  void setExtraSlow()
+  {
+    hueSpeed = 1;
+    hueSqueeze = 35;
+    volSpeed = 5;
+    volSqueeze = 40;
+  }
+};
+
+class Fx_ColorClouds : public WledFxBase
+{
+public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char FX_data[];
+
+  explicit Fx_ColorClouds(FxSetup &fxs) : WledFxBase(fxs) {}
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
+  uint16_t showEffect(FxEnv &env) override
+  {
+    clouds.moreRed = env.seg().check3;
+    return clouds.show(env);
+  }
+
+  ColorCloudsEngine clouds;
+};
+const char Fx_ColorClouds::FX_data[] PROGMEM = "1 Color Clouds@,,,,,,,More red;;;;o3=1";
+
+class Fx_ColorCloudsAmbient : public WledFxBase
+{
+public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char FX_data[];
+
+  explicit Fx_ColorCloudsAmbient(FxSetup &fxs) : WledFxBase(fxs) { clouds.setAmbient(); }
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
+  uint16_t showEffect(FxEnv &env) override
+  {
+    clouds.moreRed = env.seg().check3;
+    return clouds.show(env);
+  }
+
+  ColorCloudsEngine clouds;
+};
+const char Fx_ColorCloudsAmbient::FX_data[] PROGMEM = "1 Color Clouds Ambient@,,,,,,,More red";
+
+class Fx_ColorCloudsExtraSlow : public WledFxBase
+{
+public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char FX_data[];
+
+  explicit Fx_ColorCloudsExtraSlow(FxSetup &fxs) : WledFxBase(fxs) { clouds.setExtraSlow(); }
+
+private:
+#if (WLED_EFFECT_ENABLE_CLONE)
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+#endif
+
+  uint16_t showEffect(FxEnv &env) override
+  {
+    clouds.moreRed = env.seg().check3;
+    return clouds.show(env);
+  }
+
+  ColorCloudsEngine clouds;
+};
+const char Fx_ColorCloudsExtraSlow::FX_data[] PROGMEM = "1 Color Clouds Turtle@,,,,,,,More red;;;;o3=1";
+
+
 #ifndef WLED_DISABLE_2D
 ///////////////////////////////////////////////////////////////////////////////
 //***************************  2D routines  ***********************************
@@ -10668,6 +10823,9 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
+  addWledEffect<Fx_ColorClouds>(*this);
+  addWledEffect<Fx_ColorCloudsAmbient>(*this);
+  addWledEffect<Fx_ColorCloudsExtraSlow>(*this);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
