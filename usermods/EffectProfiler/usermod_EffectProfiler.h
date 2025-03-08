@@ -287,15 +287,16 @@ private:
     seg.setPixelColor(0, 0x000000);
     seg.setPixelColor(1, 0x000000);
     seg.setPixelColor(2, 0x000000);
+    seg.setPixelColor(3, 0x000000);
     if (_isSelected_A)
     {
-      seg.setPixelColor(0, 0x00FF00);
+      seg.setPixelColor(1, 0x00FF00);
     }
     else
     {
       if (_stats_B.isValid())
       {
-        seg.setPixelColor(1, 0x0000FF);
+        seg.setPixelColor(2, 0x0000FF);
       }
     }
 

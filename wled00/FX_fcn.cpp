@@ -97,6 +97,7 @@ Segment::Segment(const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   effect.release(); // leave the effect at the origin; this copy shall create a new one
+  oldEffect.release();
 #if (WLED_EFFECT_ENABLE_CLONE)
   if(orig.effect) { effect = orig.effect->clone(); }
 #endif
@@ -113,6 +114,7 @@ Segment::Segment(Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   orig.effect.release(); // grabbed the effect from the origin; don't delete it there
+  orig.oldEffect.release();
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
   orig.data = nullptr;
@@ -131,6 +133,7 @@ Segment& Segment::operator= (const Segment &orig) {
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
     effect.release(); // leave the effect at the origin; this copy shall create a new one
+    oldEffect.release();
 #if (WLED_EFFECT_ENABLE_CLONE)
     if(orig.effect) { effect = orig.effect->clone(); }
 #endif
@@ -152,6 +155,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     deallocateData(); // free old runtime data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     orig.effect.release(); // grabbed the effect from the origin; don't delete it there
+    orig.oldEffect.release();
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
@@ -187,6 +191,7 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
 
 void IRAM_ATTR_YN Segment::deallocateData() {
   effect.reset();
+  oldEffect.reset();
   if (!data) { _dataLen = 0; return; }
   //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
@@ -210,6 +215,8 @@ void Segment::resetIfRequired() {
   if (!reset) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   effect.reset();
+  oldEffect.reset();
+  isModeTransition = false;
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
@@ -285,9 +292,6 @@ void Segment::startTransition(uint16_t dur) {
 #ifndef WLED_DISABLE_MODE_BLEND
   swapSegenv(_t->_segT);
   _t->_modeT          = mode;
-#if (WLED_EFFECT_ENABLE_CLONE)
-  _t->_segT._effectT  = effect ? effect->clone() : nullptr;
-#endif
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
   if (_dataLen > 0 && data) {
@@ -306,6 +310,8 @@ void Segment::startTransition(uint16_t dur) {
 void Segment::stopTransition() {
   if (isInTransition()) {
     //DEBUG_PRINTF_P(PSTR("-- Stopping transition: %p\n"), this);
+    oldEffect.reset();
+    isModeTransition = false;
     #ifndef WLED_DISABLE_MODE_BLEND
     if (_t->_segT._dataT && _t->_segT._dataLenT > 0) {
       //DEBUG_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
@@ -366,13 +372,10 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
     call      = _t->_segT._callT;
     data      = _t->_segT._dataT;
     _dataLen  = _t->_segT._dataLenT;
-#if (WLED_EFFECT_ENABLE_CLONE)
-    effect.swap(_t->_segT._effectT);
-#endif
   }
 }
 
-void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
+void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
   //DEBUG_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   if (isInTransition() && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
@@ -400,9 +403,6 @@ void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
   call      = tmpSeg._callT;
   data      = tmpSeg._dataT;
   _dataLen  = tmpSeg._dataLenT;
-#if (WLED_EFFECT_ENABLE_CLONE)
-  effect.swap(tmpSeg._effectT);
-#endif
 }
 #endif
 
@@ -620,7 +620,18 @@ Segment &Segment::setOpacity(uint8_t o) {
 
 Segment &Segment::setOption(uint8_t n, bool val) {
   bool prevOn = on;
-  if (n == SEG_OPTION_ON && val != prevOn) startTransition(strip.getTransition()); // start transition prior to change
+  if (n == SEG_OPTION_ON && val != prevOn) {
+#if (WLED_EFFECT_ENABLE_CLONE)
+    if(effect) {
+      oldEffect = effect->clone();
+      if(oldEffect) {
+        effect.swap(oldEffect);
+        isModeTransition = true;
+      }
+    }
+#endif
+    startTransition(strip.getTransition()); // start transition prior to change
+  }
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   if (!(n == SEG_OPTION_SELECTED || n == SEG_OPTION_RESET)) stateChanged = true; // send UDP/WS broadcast
@@ -635,6 +646,9 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   if (fx != mode) {
 #ifndef WLED_DISABLE_MODE_BLEND
     //DEBUG_PRINTF_P(PSTR("- Starting effect transition: %d\n"), fx);
+    oldEffect.reset();
+    effect.swap(oldEffect);
+    isModeTransition = true;
     startTransition(strip.getTransition()); // set effect transitions
 #endif
     mode = fx;
@@ -1602,10 +1616,12 @@ void WS2812FX::service() {
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
           seg.swapSegenv(_tmpSegData);        // temporarily store new mode state (and swap it with transitional state)
+          if (seg.isModeTransition) seg.effect.swap(seg.oldEffect);
           seg.beginDraw();                    // set up parameters for get/setPixelColor()
           frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode
           seg.call++;                         // increment old mode run counter
           seg.restoreSegenv(_tmpSegData);     // restore mode state (will also update transitional state)
+          if (seg.isModeTransition) seg.effect.swap(seg.oldEffect);
           Segment::modeBlend(false);          // unset semaphore
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else

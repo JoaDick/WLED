@@ -439,7 +439,8 @@ public:
 
 private:
 #if (WLED_EFFECT_ENABLE_CLONE)
-  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+  WledEffectPtr cloneWledEffect() override { return nullptr; } // assuming this is non-cloneable (as example)
+  // WledEffectPtr cloneWledEffect() override { return makeClone(this); }
 #endif
 
 uint16_t showEffect(FxEnv &env) override {
@@ -1487,8 +1488,7 @@ public:
 
 private:
 #if (WLED_EFFECT_ENABLE_CLONE)
-  WledEffectPtr cloneWledEffect() override { return nullptr; } // assuming this is non-cloneable (as example)
-  // WledEffectPtr cloneWledEffect() override { return makeClone(this); }
+  WledEffectPtr cloneWledEffect() override { return makeClone(this); }
 #endif
 
   uint16_t showEffect(FxEnv &env) override {
