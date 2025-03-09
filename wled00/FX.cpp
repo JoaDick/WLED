@@ -56,6 +56,9 @@
 class Fx_Compare_1D : public WledFxBase
 {
 public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char FX_data[];
+
   explicit Fx_Compare_1D(FxSetup &fxs) : WledFxBase(fxs) {}
 
 private:
@@ -79,6 +82,7 @@ private:
     return 0;
   }
 };
+const char Fx_Compare_1D::FX_data[] PROGMEM = "1 c:m 1D class@;";
 
 uint16_t mode_compare_ref_1D()
 {
@@ -95,6 +99,7 @@ uint16_t mode_compare_ref_1D()
 
   return FRAMETIME;
 }
+static const char _data_FX_mode_compare_ref_1D[] PROGMEM = "1 c:m 1D mode_fct@;";
 
 uint16_t mode_compare_1D()
 {
@@ -120,6 +125,9 @@ static const char _data_FX_mode_compare_1D[] PROGMEM = "1 class:mode_fct 1D@;";
 class Fx_Compare_2D : public WledFxBase
 {
 public:
+  static const EffectID FX_id = AutoSelectEffectID;
+  static const char FX_data[];
+
   explicit Fx_Compare_2D(FxSetup &fxs) : WledFxBase(fxs) {}
 
 private:
@@ -145,6 +153,7 @@ private:
     return 0;
   }
 };
+const char Fx_Compare_2D::FX_data[] PROGMEM = "1 c:m 2D class@;;;2";
 
 uint16_t mode_compare_ref_2D()
 {
@@ -163,6 +172,7 @@ uint16_t mode_compare_ref_2D()
 
   return FRAMETIME;
 }
+static const char _data_FX_mode_compare_ref_2D[] PROGMEM = "1 c:m 2D mode_fct@;;;2";
 
 uint16_t mode_compare_2D()
 {
@@ -10696,15 +10706,12 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
-  addEffect(AutoSelectEffectID, &mode_compare_1D, _data_FX_mode_compare_1D);
-  addEffect(AutoSelectEffectID, &mode_compare_2D, _data_FX_mode_compare_2D);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
   addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
-  addWledEffect<Fx_RandomColor>(*this);
   addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
@@ -10717,7 +10724,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
   addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
-  addWledEffect<Fx_Twinkle>(*this);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
@@ -10741,11 +10747,9 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
-  addWledEffect<Fx_Rain>(*this);
   addEffect(FX_MODE_PRIDE_2015, &mode_pride_2015, _data_FX_MODE_PRIDE_2015);
   addEffect(FX_MODE_COLORWAVES, &mode_colorwaves, _data_FX_MODE_COLORWAVES);
   addEffect(FX_MODE_FIREWORKS, &mode_fireworks, _data_FX_MODE_FIREWORKS);
-  addWledEffect<Fx_Fireworks>(*this);
   addEffect(FX_MODE_TETRIX, &mode_tetrix, _data_FX_MODE_TETRIX);
   addEffect(FX_MODE_FIRE_FLICKER, &mode_fire_flicker, _data_FX_MODE_FIRE_FLICKER);
   addEffect(FX_MODE_GRADIENT, &mode_gradient, _data_FX_MODE_GRADIENT);
@@ -10823,9 +10827,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
-  addWledEffect<Fx_ColorClouds>(*this);
-  addWledEffect<Fx_ColorCloudsAmbient>(*this);
-  addWledEffect<Fx_ColorCloudsExtraSlow>(*this);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
@@ -10937,4 +10938,17 @@ addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
 addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1Dsonicstream, _data_FX_MODE_PS_SONICSTREAM);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
+  addWledEffect<Fx_ColorClouds>(*this);
+  addWledEffect<Fx_ColorCloudsAmbient>(*this);
+  addWledEffect<Fx_ColorCloudsExtraSlow>(*this);
+  addEffect(AutoSelectEffectID, &mode_compare_1D, _data_FX_mode_compare_1D);
+  addEffect(AutoSelectEffectID, &mode_compare_2D, _data_FX_mode_compare_2D);
+  addEffect(AutoSelectEffectID, &mode_compare_ref_1D, _data_FX_mode_compare_ref_1D);
+  addEffect(AutoSelectEffectID, &mode_compare_ref_2D, _data_FX_mode_compare_ref_2D);
+  addWledEffect<Fx_Compare_1D>(*this);
+  addWledEffect<Fx_Compare_2D>(*this);
+  addWledEffect<Fx_RandomColor>(*this);
+  addWledEffect<Fx_Twinkle>(*this);
+  addWledEffect<Fx_Rain>(*this);
+  addWledEffect<Fx_Fireworks>(*this);
 }

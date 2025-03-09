@@ -12,12 +12,33 @@
 
 uint16_t WledFxBase::showWledEffect(FxEnv &env)
 {
-  if (mustRecreate(env))
+  // Must effect adapt to a changed Segment?
+  if (&env.seg() != _seg)
   {
-    // We have to be recreated from scratch when any essential property of the Segment has changed
-    // during runtime. This is the case e.g. when "Mirror effect" setting is changed.
-    return pleaseKillMe(env);
+    _seg = &env.seg();
+    _seglen = _seg->vLength();
+    _segW = _seg->vWidth();
+    _segH = _seg->vHeight();
+    if (onSegmentChanged(env) == false)
+    {
+      return pleaseKillMe(env);
+    }
   }
+
+  // Must effect adapt to changed Segment dimensions?
+  if (env.seglen() != _seglen ||
+      env.segW() != _segW ||
+      env.segH() != _segH)
+  {
+    _seglen = _seg->vLength();
+    _segW = _seg->vWidth();
+    _segH = _seg->vHeight();
+    if (onSegmentDimensionChanged(env) == false)
+    {
+      return pleaseKillMe(env);
+    }
+  }
+
   if (env.seg().call == 0)
   {
     initEffect(env);
@@ -25,17 +46,8 @@ uint16_t WledFxBase::showWledEffect(FxEnv &env)
   return showEffect(env);
 }
 
-bool WledFxBase::mustRecreate(const FxEnv &env) const
-{
-  if (env.seglen() != _seglen ||
-      env.segW() != _segW ||
-      env.segH() != _segH)
-  {
-    return true;
-  }
-  return false;
-}
-
+bool WledFxBase::onSegmentChanged(FxEnv &) { return true; }
+bool WledFxBase::onSegmentDimensionChanged(FxEnv &) { return true; }
 void WledFxBase::initEffect(FxEnv &) {}
 
 //--------------------------------------------------------------------------------------------------

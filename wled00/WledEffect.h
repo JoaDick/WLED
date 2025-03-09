@@ -236,8 +236,9 @@ uint8_t addWledEffect(WS2812FX &wled,
 /** Simple base class which should be suitable for most class-based effects.
  * Child classes must implement the \c showEffect() method. Additionally, they can implement the
  * \c initEffect() method, which may be used for one-time initialization of internal state. \n
- * This base class also checks if the Segment's dimensions have changed. If so, the current effect
- * instance is destroyed (and recreated automatically upon the next frame).
+ * This base class also checks if the Segment or its dimensions have changed. If so, the child is
+ * asked to adapt to these changes. In case it can't, the current effect instance is destroyed (and
+ * recreated automatically upon the next frame).
  */
 class WledFxBase : public WledEffect
 {
@@ -248,10 +249,10 @@ protected:
 #endif
 
   /// Constructor; child classes shall just pass \a fxs to their base class.
-  explicit WledFxBase(FxSetup &fxs) : WledEffect(fxs),
-                                      _seglen(fxs.env.seg().vLength()),
-                                      _segW(fxs.env.seg().vWidth()),
-                                      _segH(fxs.env.seg().vHeight()) {}
+  explicit WledFxBase(FxSetup &fxs) : WledEffect(fxs), _seg(&fxs.env.seg()),
+                                      _seglen(_seg->vLength()),
+                                      _segW(_seg->vWidth()),
+                                      _segH(_seg->vHeight()) {}
 
   /** Initialization function for the custom WLED effect.
    * Can optionally be implemented by child classes to initialize their internal data.
@@ -273,13 +274,31 @@ protected:
    */
   virtual uint16_t showEffect(FxEnv &env) = 0;
 
+  /** Ask child to adapt to a changed underlying Segment.
+   * Should only be implemented by those child classes which need to be informed when the underlying
+   * Segment has changed, or when they can't handle that at all.
+   * @param env Adjusted runtime environment with the new Segment.
+   * @retval true OK, adapted to new Segment (default).
+   * @retval false Cannot deal with new Segment, please kill me!
+   */
+  virtual bool onSegmentChanged(FxEnv &env);
+
+  /** Ask child to adapt to changed Segment dimensions.
+   * Should only be implemented by those child classes which need to be informed about changed
+   * Segment dimensions, or when they can't handle that at all.
+   * @param env Adjusted runtime environment with the new dimensions.
+   * @retval true OK, adapted to new dimensions (default).
+   * @retval false Cannot deal with new dimensions, please kill me!
+   */
+  virtual bool onSegmentDimensionChanged(FxEnv &env);
+
 private:
   uint16_t showWledEffect(FxEnv &env) final;
-  bool mustRecreate(const FxEnv &env) const;
 
-  const uint16_t _seglen;
-  const uint16_t _segW;
-  const uint16_t _segH;
+  Segment *_seg;
+  uint16_t _seglen;
+  uint16_t _segW;
+  uint16_t _segH;
 };
 
 //--------------------------------------------------------------------------------------------------
