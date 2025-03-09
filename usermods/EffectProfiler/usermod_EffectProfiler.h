@@ -12,18 +12,19 @@
 
 #pragma once
 
+#include <array>
 #include "wled.h"
 #include "EffectProfilerTrigger.h"
 
 //--------------------------------------------------------------------------------------------------
 
-/// Minimalistic example that shows how to measure the runtime of an effect.
+/// Minimalistic example that shows how to measure the runtime of a function.
 uint16_t mode_EffectProfiler_auto()
 {
-  // 1. just add this line at the very beginning of the effect function
-  EffectProfilerTrigger profiler;
+  // 1. just add this line at the very beginning of the function
+  EffectProfilerTrigger profiler(0); // uses slot 0
 
-  // 2. then comes the effect code
+  // 2. then comes the code
   SEGMENT.fadeToBlackBy(128 - (SEGMENT.intensity / 2));
   const uint16_t pos = beatsin16(1 + SEGMENT.speed / 4, 0, SEGLEN - 1);
   SEGMENT.setPixelColor(pos, SEGCOLOR(0));
@@ -38,6 +39,33 @@ uint16_t mode_EffectProfiler_auto()
   return FRAMETIME;
 }
 static const char _data_FX_mode_EffectProfiler_auto[] PROGMEM = "Profiler: auto@!,!;!;;;sx=120,ix=64";
+
+/// Example that shows how to measure multiple slots (same effect as before).
+uint16_t mode_EffectProfiler_slots()
+{
+  EffectProfilerTrigger profiler;
+
+  profiler.start(0); // uses slot 0
+  SEGMENT.fadeToBlackBy(128 - (SEGMENT.intensity / 2));
+  profiler.stop();
+
+  profiler.start(1); // uses slot 1
+  const uint16_t pos = beatsin16(1 + SEGMENT.speed / 4, 0, SEGLEN - 1);
+  profiler.stop();
+
+  profiler.start(2); // uses slot 2
+  SEGMENT.setPixelColor(pos, SEGCOLOR(0));
+  if (SEGENV.call == 0)
+    SEGENV.aux0 = pos;
+  while (SEGENV.aux0 < pos)
+    SEGMENT.setPixelColor(SEGENV.aux0++, SEGCOLOR(0));
+  while (SEGENV.aux0 > pos)
+    SEGMENT.setPixelColor(SEGENV.aux0--, SEGCOLOR(0));
+  profiler.stop();
+
+  return FRAMETIME;
+}
+static const char _data_FX_mode_EffectProfiler_slots[] PROGMEM = "Profiler: slots@!,!;!;;;sx=120,ix=64";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -69,25 +97,24 @@ void makeFastLedRainbow(uint8_t startHue, uint8_t deltaHue)
  */
 uint16_t mode_EffectProfiler_AB()
 {
+  static uint16_t startHue = 0;
+  static uint8_t deltaHue = 3;
+
   EffectProfilerTrigger profiler;
-
-  static uint8_t startHue = 0;
-  static uint8_t deltaHue = 7;
-
   if (profiler.mustRun_A())
   {
     profiler.start_A();
-    makeFastLedRainbow(startHue, deltaHue); // the new _A_lternative stuff
+    makeFastLedRainbow(startHue / 256, deltaHue); // the new _A_lternative stuff
     profiler.stop();
   }
   else
   {
     profiler.start_B();
-    makeColorWheelRainbow(startHue, deltaHue); // the existing stuff as reference _B_aseline
+    makeColorWheelRainbow(startHue / 256, deltaHue); // the existing stuff as reference _B_aseline
     profiler.stop();
   }
 
-  ++startHue;
+  startHue += 64;
 
   return FRAMETIME;
 }
@@ -107,7 +134,7 @@ void complicated_algorithm()
   }
 }
 
-// Experimental: supposedly faster.
+// Experimental: hopefully faster.
 void optimized_algorithm()
 {
   Segment &seg = SEGMENT;
@@ -126,8 +153,10 @@ uint16_t mode_EffectProfiler_multi()
 {
   EffectProfilerTrigger profiler;
 
+  profiler.start(0);
   for (unsigned i = 0; i < SEGLEN; ++i)
     SEGMENT.setPixelColor(i, hw_random8() / 16, hw_random8() / 16, hw_random8() / 16);
+  profiler.stop();
 
   if (profiler.mustRun_A())
   {
@@ -165,9 +194,6 @@ public:
   uint32_t avgDuration_us() const { return _avgDuration_us; }
   uint32_t minDuration_us() const { return _minDuration_us; }
   uint32_t maxDuration_us() const { return _maxDuration_us; }
-
-  uint32_t maxIterationsPerSec() const { return (1000 * 1000) / avgDuration_us(); }
-  uint32_t maxIterationsPerFrame() const;
 
   void addSample(uint32_t iterations, uint32_t duration_us)
   {
@@ -228,10 +254,21 @@ public:
   uint8_t currentMode() const { return _currentMode; }
 
   /// Get profiling statistics.
-  const EffectProfilerStats &stats_A() const { return _stats_A; }
+  const EffectProfilerStats &stats(uint8_t slot) const
+  {
+    if (slot >= _stats.size())
+      slot = 0;
+    return _stats[slot];
+  }
+
+  /// Get profiling statistics for option A (only valid in case of A-B testing).
+  const EffectProfilerStats &stats_A() const { return stats(EffectProfilerTrigger::slot_A); }
 
   /// Get profiling statistics for option B (only valid in case of A-B testing).
-  const EffectProfilerStats &stats_B() const { return _stats_B; }
+  const EffectProfilerStats &stats_B() const { return stats(EffectProfilerTrigger::slot_B); }
+
+  /// Get profiling statistics for frame.
+  const EffectProfilerStats &stats_F() const { return stats(EffectProfilerTrigger::slot_F); }
 
   /// @see EffectProfilerBackend::isSelected_A()
   bool isSelected_A() override { return _isSelected_A; }
@@ -243,19 +280,19 @@ public:
   uint32_t getIterations_B() override { return _iterations_B; }
 
   /// @see EffectProfilerBackend::addTestRun()
-  void addTestRun(uint32_t duration_us, uint32_t iterations, bool is_A, Segment &seg) override
+  void addTestRun(uint32_t duration_us, uint32_t iterations, uint8_t slot, Segment &seg) override
   {
     if (seg.isInTransition())
+      return;
+
+    if (slot >= _stats.size())
       return;
 
     const uint8_t mode = seg.mode;
     if (mode != _currentMode)
       reset(mode);
 
-    if (is_A)
-      _stats_A.addSample(iterations, duration_us);
-    else
-      _stats_B.addSample(iterations, duration_us);
+    _stats[slot].addSample(iterations, duration_us);
 
     drawStats(seg);
     prepareNextTestRun();
@@ -264,8 +301,8 @@ public:
 
   void resetStats()
   {
-    _stats_A.resetStats();
-    _stats_B.resetStats();
+    for (auto &stat : _stats)
+      stat.resetStats();
   }
 
 private:
@@ -277,48 +314,42 @@ private:
     _isSelected_A = false;
     _iterations_A = 10;
     _iterations_B = 10;
-    _stats_A.reset();
-    _stats_B.reset();
+    for (auto &stat : _stats)
+      stat.reset();
     prepareNextTestRun();
   }
 
   void drawStats(Segment &seg)
   {
+    if (!stats_A().isValid() || !stats_B().isValid())
+      return;
+
     seg.setPixelColor(0, 0x000000);
     seg.setPixelColor(1, 0x000000);
     seg.setPixelColor(2, 0x000000);
+    seg.setPixelColor(3, 0x000000);
     if (_isSelected_A)
-    {
-      seg.setPixelColor(0, 0x00FF00);
-    }
+      seg.setPixelColor(1, 0x00FF00);
     else
-    {
-      if (_stats_B.isValid())
-      {
-        seg.setPixelColor(1, 0x0000FF);
-      }
-    }
+      seg.setPixelColor(2, 0x0000FF);
 
-    if (_stats_A.isValid() && _stats_B.isValid())
+    const uint32_t duration_A = stats_A().avgDuration_us();
+    const uint32_t duration_B = stats_B().avgDuration_us();
+    if (duration_A < duration_B)
     {
-      const uint32_t duration_A = _stats_A.avgDuration_us();
-      const uint32_t duration_B = _stats_B.avgDuration_us();
-      if (duration_A < duration_B)
-      {
-        const float ratio = float(duration_A) / float(duration_B);
-        const int pos = seg.vLength() * ratio;
-        seg.setPixelColor(pos - 1, 0);
-        seg.setPixelColor(pos, 0x00FF00);
-        seg.setPixelColor(pos + 1, 0);
-      }
-      if (duration_A > duration_B)
-      {
-        const float ratio = float(duration_B) / float(duration_A);
-        const int pos = seg.vLength() * ratio;
-        seg.setPixelColor(pos - 1, 0);
-        seg.setPixelColor(pos, 0x0000FF);
-        seg.setPixelColor(pos + 1, 0);
-      }
+      const float ratio = float(duration_A) / float(duration_B);
+      const int pos = seg.vLength() * ratio;
+      seg.setPixelColor(pos - 1, 0);
+      seg.setPixelColor(pos, 0x00FF00);
+      seg.setPixelColor(pos + 1, 0);
+    }
+    if (duration_A > duration_B)
+    {
+      const float ratio = float(duration_B) / float(duration_A);
+      const int pos = seg.vLength() * ratio;
+      seg.setPixelColor(pos - 1, 0);
+      seg.setPixelColor(pos, 0x0000FF);
+      seg.setPixelColor(pos + 1, 0);
     }
   }
 
@@ -341,8 +372,7 @@ private:
   bool _isSelected_A;
   uint32_t _iterations_A;
   uint32_t _iterations_B;
-  EffectProfilerStats _stats_A;
-  EffectProfilerStats _stats_B;
+  std::array<EffectProfilerStats, EffectProfilerTrigger::maxSlots + 3> _stats;
 };
 
 /// The EffectProfiler usermod, which is presenting the measurement statistics on the UI.
@@ -354,6 +384,7 @@ public:
   void setup() override
   {
     strip.addEffect(255, &mode_EffectProfiler_auto, _data_FX_mode_EffectProfiler_auto);
+    strip.addEffect(255, &mode_EffectProfiler_slots, _data_FX_mode_EffectProfiler_slots);
     strip.addEffect(255, &mode_EffectProfiler_AB, _data_FX_mode_EffectProfiler_AB);
     strip.addEffect(255, &mode_EffectProfiler_multi, _data_FX_mode_EffectProfiler_multi);
 
@@ -411,6 +442,7 @@ public:
 
     const EffectProfilerStats &stats_A = _profiler.stats_A();
     const EffectProfilerStats &stats_B = _profiler.stats_B();
+    const EffectProfilerStats &stats_F = _profiler.stats_F();
 
     JsonArray infoArr;
     String arrayEntry;
@@ -440,54 +472,25 @@ public:
                     ? F("<button onclick=\"requestJson({EffectProfiler:{cmd:1}});\">Reset</button>")
                     : F("<i>(idle)</i>"));
 
-    if (!stats_A.isValid())
-      return;
+    infoArr = user.createNestedArray(F("Frames"));
+    uiDomString = int(stats_F.frames());
+    infoArr.add(uiDomString);
 
     // --- duration table ---
 
     infoArr = user.createNestedArray(F("Duration (µs)"));
     uiDomString.clear();
-    uiDomString += F("<table><tr>");
-    uiDomString += stats_B.isValid() ? F("<th></th>") : F("");
-    uiDomString += F("<th>min.</th><th>avg.</th><th>max.</th>");
-
-    uiDomString += F("</tr><tr>");
-    uiDomString += stats_B.isValid() ? F("<th>A</th>") : F("");
-    // uiDomString += stats_B.isValid() ? F("<td><b>A</b></td>") : F("");
-    // uiDomString += stats_B.isValid() ? F("<td><font color=\"#00FF00\";><b>A</b></font></td>") : F("");
-    uiDomString += F("<td>");
-    uiDomString += stats_A.minDuration_us();
-    uiDomString += F("</td>");
-    uiDomString += F("<td>");
-    uiDomString += stats_A.avgDuration_us();
-    uiDomString += F("</td>");
-    uiDomString += F("<td>");
-    uiDomString += stats_A.maxDuration_us();
-    uiDomString += F("</td>");
-
-    if (stats_B.isValid())
-    {
-      uiDomString += F("</tr><tr>");
-      uiDomString += F("<th>B</th>");
-      // uiDomString += F("<td><b>B</b></td>");
-      // uiDomString += F("<td><font color=\"#00BFFF\";><b>B</b></font></td>");
-      uiDomString += F("<td>");
-      uiDomString += stats_B.minDuration_us();
-      uiDomString += F("</td>");
-      uiDomString += F("<td>");
-      uiDomString += stats_B.avgDuration_us();
-      uiDomString += F("</td>");
-      uiDomString += F("<td>");
-      uiDomString += stats_B.maxDuration_us();
-      uiDomString += F("</td>");
-    }
-
-    uiDomString += F("</tr></table>");
+    uiDomString += F("<table>");
+    uiDomString += F("<tr><th></th><th>min.</th><th>avg.</th><th>max.</th></tr>");
+    uiDomString += makeDurationRow(F("Frame"), stats_F);
+    for (uint8_t i = 0; i < EffectProfilerTrigger::maxSlots; ++i)
+      uiDomString += makeDurationRow(String(F("Slot ")) + int(i), _profiler.stats(i));
+    uiDomString += makeDurationRow(F("A"), stats_A);
+    uiDomString += makeDurationRow(F("B"), stats_B);
+    uiDomString += F("</table>");
     infoArr.add(uiDomString);
 
-    // --- A-B comparison ---
-
-    if (stats_B.isValid())
+    if (stats_A.isValid() && stats_B.isValid())
     {
       const int32_t duration_A = stats_A.avgDuration_us();
       const int32_t duration_B = stats_B.avgDuration_us();
@@ -495,6 +498,7 @@ public:
       const int32_t delta = duration_A - duration_B;
       const int32_t ratio = (1000 * duration_A) / duration_B;
 
+      // --- A-B comparison ---
       infoArr = user.createNestedArray(F("Delta A-B"));
       uiDomString.clear();
 
@@ -526,14 +530,10 @@ public:
       uiDomString += F("%</font>");
 
       infoArr.add(uiDomString);
-    }
 
-    // --- iterations ---
-
-    infoArr = user.createNestedArray(F("Iterations"));
-    uiDomString.clear();
-    if (stats_B.isValid())
-    {
+      // --- A-B iterations ---
+      infoArr = user.createNestedArray(F("Iterations"));
+      uiDomString.clear();
       if (_profiler.isSelected_A())
       {
         uiDomString += F("<font color=\"#00FF00\";><b>A</b></font> = ");
@@ -548,16 +548,30 @@ public:
         uiDomString += F(" | <font color=\"#00BFFF\";><b>B</b></font> = ");
         uiDomString += stats_B.totalIterations();
       }
+      infoArr.add(uiDomString);
     }
-    else
-    {
-      uiDomString += stats_A.totalIterations();
-    }
-    infoArr.add(uiDomString);
   }
 
 private:
   bool initDone() const { return um_data.u_size != 0; }
+
+  String makeDurationRow(const String &slot, const EffectProfilerStats &stats)
+  {
+    String uiDomString;
+    if (stats.isValid())
+    {
+      uiDomString += F("<tr><td><b>");
+      uiDomString += slot;
+      uiDomString += F("</b></td><td>");
+      uiDomString += stats.minDuration_us();
+      uiDomString += F("</td><td>");
+      uiDomString += stats.avgDuration_us();
+      uiDomString += F("</td><td>");
+      uiDomString += stats.maxDuration_us();
+      uiDomString += F("</td></tr>");
+    }
+    return uiDomString;
+  }
 
 private:
   EffectProfilerEngine _profiler;

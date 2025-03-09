@@ -13,6 +13,7 @@
 #include "FX.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
+#include "../usermods/EffectProfiler/EffectProfilerTrigger.h"
 
 /*
   Custom per-LED mapping has moved!
@@ -1588,7 +1589,12 @@ void WS2812FX::service() {
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else
 #endif
-        frameDelay = (*_mode[seg.mode])();         // run effect mode (not in transition)
+        {
+          EffectProfilerTrigger profiler;
+          profiler.startFrame();
+          frameDelay = (*_mode[seg.mode])();         // run effect mode (not in transition)
+          profiler.stop();
+        }
         seg.call++;
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
         BusManager::setSegmentCCT(oldCCT); // restore old CCT for ABL adjustments
