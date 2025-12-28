@@ -5041,19 +5041,28 @@ static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pa
  */
 uint16_t mode_ColorClouds()
 {
-  /// Higher values make the clouds move faster.
+  // Set random start points for clouds and color.
+  if(SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16();
+    SEGENV.aux1 = hw_random16();
+  }
+  const uint32_t volX0 = SEGENV.aux0;
+  const uint32_t hueX0 = SEGENV.aux1;
+  const uint8_t hueOffset0 = volX0 + hueX0;
+
+  // Higher values make the clouds move faster.
   const uint32_t volSpeed = 1 + SEGMENT.speed;
   
-  /// Higher values make the color change faster.
+  // Higher values make the color change faster.
   const uint32_t hueSpeed = 1 + SEGMENT.intensity;
   
-  /// Higher values make more clouds (but smaller ones).
+  // Higher values make more clouds (but smaller ones).
   const uint32_t volSqueeze = 8 + SEGMENT.custom1;
   
-  /// Higher values make the clouds more colorful.
+  // Higher values make the clouds more colorful.
   const uint32_t hueSqueeze = SEGMENT.custom2;
 
-  /// Higher values make larger gaps between the clouds.
+  // Higher values make larger gaps between the clouds.
   const long volCutoff = 2000 + SEGMENT.custom3 * 1250;
 
   const uint32_t now = strip.now;
@@ -5062,16 +5071,20 @@ uint16_t mode_ColorClouds()
   for (int i = 0; i < SEGLEN; i++) {
     const uint32_t hueX = i * hueSqueeze * 8;
     const uint32_t hueT = now * hueSpeed / 8;
-    uint8_t hue = inoise16(hueX, hueT) >> 7;
+    uint8_t hue = inoise16(hueX0 + hueX, hueT) >> 7;
+    hue += hueOffset0;
     hue += hueOffset;
 
     const uint32_t volX = i * volSqueeze * 64;
     const uint32_t volT = now * volSpeed / 8;
-    long vol = inoise16(volX, volT);
+    long vol = inoise16(volX0 + volX, volT);
     vol = map(vol, volCutoff, 46000, 0, 255);
     vol = constrain(vol, 0, 255);
 
     CRGB pixel = CHSV(hue, 255, vol);
+    // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
+    // Unfortunately this doesn't work anymore when gamma correction for color is enabled.
+    // So, when using this effect standalone, also try it without color gamma correction.
     if (int(pixel.r) + pixel.g + pixel.b <= 2) {
       pixel = CRGB::Black;
     }
