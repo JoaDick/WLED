@@ -5065,6 +5065,9 @@ uint16_t mode_ColorClouds()
   // Higher values make larger gaps between the clouds.
   const long volCutoff = 2000 + SEGMENT.custom3 * 1250;
 
+  // Put more emphasis on the red'ish colors when true.
+  const bool moreRed = SEGMENT.check3;
+
   const uint32_t now = strip.now;
   const uint8_t hueOffset = beat88(64) >> 8;
 
@@ -5074,6 +5077,10 @@ uint16_t mode_ColorClouds()
     uint8_t hue = inoise16(hueX0 + hueX, hueT) >> 7;
     hue += hueOffset0;
     hue += hueOffset;
+    if (moreRed)
+    {
+      hue = cos8(128 + hue / 2);
+    }
 
     const uint32_t volX = i * volSqueeze * 64;
     const uint32_t volT = now * volSpeed / 8;
@@ -5094,7 +5101,7 @@ uint16_t mode_ColorClouds()
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance;;;;sx=24,ix=32,c1=48,c2=64,c3=12";
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;;;sx=24,ix=32,c1=48,c2=64,c3=12";
 
 
 // WLED-SR effects
