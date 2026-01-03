@@ -5069,11 +5069,17 @@ uint16_t mode_ColorClouds()
   const bool moreRed = SEGMENT.check3;
 
   const uint32_t now = strip.now;
+  const uint32_t volT = now * volSpeed / 8;
+  const uint32_t hueT = now * hueSpeed / 8;
   const uint8_t hueOffset = beat88(64) >> 8;
 
   for (int i = 0; i < SEGLEN; i++) {
+    const uint32_t volX = i * volSqueeze * 64;
+    long vol = inoise16(volX0 + volX, volT);
+    vol = map(vol, volCutoff, 46000, 0, 255);
+    vol = constrain(vol, 0, 255);
+
     const uint32_t hueX = i * hueSqueeze * 8;
-    const uint32_t hueT = now * hueSpeed / 8;
     uint8_t hue = inoise16(hueX0 + hueX, hueT) >> 7;
     hue += hueOffset0;
     hue += hueOffset;
@@ -5081,12 +5087,6 @@ uint16_t mode_ColorClouds()
     {
       hue = cos8(128 + hue / 2);
     }
-
-    const uint32_t volX = i * volSqueeze * 64;
-    const uint32_t volT = now * volSpeed / 8;
-    long vol = inoise16(volX0 + volX, volT);
-    vol = map(vol, volCutoff, 46000, 0, 255);
-    vol = constrain(vol, 0, 255);
 
     CRGB pixel = CHSV(hue, 255, vol);
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
