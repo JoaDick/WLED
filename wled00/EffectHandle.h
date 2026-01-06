@@ -31,6 +31,7 @@ public:
   explicit EffectHandle(Segment &seg) : _seg{&seg} {}
 
   /** Create an instance of the given \a FX_TYPE effect class inside this handle.
+   * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
    * @param now The current timestamp (in ms).
    */
   template <class FX_TYPE>

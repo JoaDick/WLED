@@ -66,7 +66,12 @@ void FxEnv::updateTime(uint32_t now)
 //--------------------------------------------------------------------------------------------------
 // class EffectBase
 
-EffectBase::EffectBase(FxSetup &fxs) { fxs.env.seg().fill(0); }
+EffectBase::EffectBase(FxSetup &fxs)
+{
+  FxEnv &env = fxs.env();
+  Segment &seg = env.seg();
+  seg.fill(0);
+}
 
 void EffectBase::show(FxEnv &env)
 {

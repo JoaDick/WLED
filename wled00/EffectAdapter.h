@@ -20,7 +20,7 @@
 
 /** TBD.
  */
-class EffectController : private FxEnv, private FxProperties
+class EffectController : private FxSetup, private FxEnv, private FxProperties
 {
 public:
   // no copy & move
@@ -50,7 +50,7 @@ public:
   }
 
   /// Get the setup data to provide to the effect's constructor.
-  FxSetup getFxSetup() { return {*this, *this}; }
+  FxSetup &getFxSetup() { return *this; }
 
   /** Render the effect's pixel magic on the segment.
    * @param now The current timestamp (in ms).
@@ -67,6 +67,8 @@ public:
 
 private:
   EffectController(const EffectController &) = default;
+  FxProperties &props() override { return *this; }
+  FxEnv &env() override { return *this; }
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -91,6 +93,7 @@ public:
   virtual ~EffectAdapter() = default;
 
   /** Create an EffectAdapter for the given \a FX_TYPE effect class.
+   * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
    * @param seg The segment wo work on.
    * @param now The current timestamp (in ms).
    */
@@ -140,7 +143,7 @@ protected:
   EffectAdapter(const EffectAdapter &other, RawEffectPtr effect) : _fxController{other._fxController, effect} {}
 
   /// Get the setup data to provide to the effect's constructor.
-  FxSetup getFxSetup() { return _fxController.getFxSetup(); }
+  FxSetup &getFxSetup() { return _fxController.getFxSetup(); }
 
   /** Create a clone of this EffectAdapter instance.
    * Must be implemented by all child classes.
@@ -157,12 +160,13 @@ private:
 /** Concrete implementation of an EffectAdapter that is using \a FX_TYPE as effect class.
  * The sole purpose of this class is to hold an instance of the desired effect type, and to make a
  * clone of it when requested (if possible).
+ * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
  */
 template <class FX_TYPE>
 class EffectAdapterImpl : public EffectAdapter
 {
 public:
-  static EffectAdapterPtr do_create(InitData &data) { return new (std::nothrow) EffectAdapterImpl(data); }
+  static EffectAdapterPtr do_create(InitData &data) { return EffectAdapterPtr{new (std::nothrow) EffectAdapterImpl(data)}; }
 
 private:
   /// Constructor.
@@ -175,7 +179,7 @@ private:
   EffectAdapterPtr do_clone() override { return do_clone(std::is_copy_constructible<FX_TYPE>{}); }
 
   // FX_TYPE has a copy constructor --> great, let's make a copy :-)
-  EffectAdapterPtr do_clone(std::true_type) { return new (std::nothrow) EffectAdapterImpl(*this); }
+  EffectAdapterPtr do_clone(std::true_type) { return EffectAdapterPtr{new (std::nothrow) EffectAdapterImpl(*this)}; }
 
   // FX_TYPE does not have a copy constructor --> there's nothing we can do :-(
   EffectAdapterPtr do_clone(std::false_type) { return nullptr; }
@@ -192,7 +196,34 @@ template <class FX_TYPE>
 void EffectHandle::createEffect(uint32_t now)
 {
   reset();
-  _fxAdapter = EffectAdapter::create<FX_TYPE>(_seg, now);
+  _fxAdapter = EffectAdapter::create<FX_TYPE>(*_seg, now);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+/** Mode function for all class-based effects (to be registered at the WLED framework).
+ * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
+ * @see addWledEffect()
+ * @note This mode function is abused as factory for the effect class. It does \e not render the
+ * effect on the Segment, as the "normal" mode functions do.
+ */
+template <class FX_TYPE>
+uint16_t mode_EffectClass()
+{
+  extern WS2812FX strip;
+  SEGMENT.createEffect<FX_TYPE>(strip.now);
+  return 0;
+}
+
+/** Register a class-based effect at the WLED framework.
+ * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
+ * @param wled WS2812FX instance representing the WLED framework - a.k.a. \c strip
+ * @return The actual ID that is assigned to the effect, or 255 on failure.
+ */
+template <class FX_TYPE>
+uint8_t addEffectClass(WS2812FX &wled, uint8_t FX_id, const char *FX_data)
+{
+  return wled.addEffect(FX_id, &mode_EffectClass<FX_TYPE>, FX_data);
 }
 
 //--------------------------------------------------------------------------------------------------

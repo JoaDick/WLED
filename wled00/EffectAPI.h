@@ -172,17 +172,21 @@ protected:
 
 //--------------------------------------------------------------------------------------------------
 
-/** Effect setup data.
- * This data is passed to the constructor of all concrete effect implementations.
+/** Interface to access setup data for creating effect instances.
+ * This interface is passed to the constructor of all concrete effect implementations.
  */
-struct FxSetup
+class FxSetup
 {
+public:
   /// Use this to specify specific properties of the effect (optional).
-  FxProperties &props;
+  virtual FxProperties &props() = 0;
 
   /// Use this to initialize the LED strip (optional).
   /// @note All LEDs of the segment are already switched off automatically.
-  FxEnv &env;
+  virtual FxEnv &env() = 0;
+
+protected:
+  ~FxSetup() = default;
 };
 
 //--------------------------------------------------------------------------------------------------

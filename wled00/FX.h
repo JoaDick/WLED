@@ -639,6 +639,9 @@ class Segment {
     Segment& operator= (const Segment &orig); // copy assignment
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
+    template <class FX_TYPE>
+    void createEffect(uint32_t now) { _effectHandle.createEffect<FX_TYPE>(now); }
+
 #ifdef WLED_DEBUG
     size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }
 #endif
