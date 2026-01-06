@@ -1,6 +1,4 @@
 /**
- * Helper classes for integrating class-based effects into the WLED framework.
- *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
  */
@@ -9,6 +7,7 @@
 #include "EffectAdapter.h"
 
 //--------------------------------------------------------------------------------------------------
+// class EffectController
 
 bool EffectController::updateSegment(Segment &seg)
 {
@@ -22,6 +21,19 @@ bool EffectController::updateSegment(Segment &seg)
     FxEnv::setBroken();
   }
   return !FxEnv::isBroken();
+}
+
+//--------------------------------------------------------------------------------------------------
+// class EffectAdapter
+
+EffectAdapterPtr EffectAdapter::clone(Segment &seg)
+{
+  EffectAdapterPtr retval = do_clone();
+  if (retval)
+  {
+    retval->updateSegment(seg);
+  }
+  return retval;
 }
 
 //--------------------------------------------------------------------------------------------------

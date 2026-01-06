@@ -18,6 +18,7 @@
 
 #include <vector>
 #include "wled.h"
+#include "EffectHandle.h"
 
 #ifdef WLED_DEBUG
   // enable additional debug output
@@ -472,6 +473,7 @@ class Segment {
     mutable uint16_t aux0;  // custom var
     mutable uint16_t aux1;  // custom var
     byte     *data; // effect data pointer
+    EffectHandle _effectHandle;
 
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
 
@@ -598,6 +600,7 @@ class Segment {
     , aux0(0)
     , aux1(0)
     , data(nullptr)
+    , _effectHandle(*this)
     , _dataLen(0)
     , _default_palette(6)
     , _capabilities(0)
@@ -1067,5 +1070,9 @@ class WS2812FX {
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
+
+// This include at the end of the file is a bit unorthodox, but this is the only possibility to
+// keep that code in a separate file (instead of placing it directly here).
+#include "EffectAdapter.h"
 
 #endif

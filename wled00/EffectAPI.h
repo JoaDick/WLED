@@ -1,5 +1,7 @@
 /**
- * Interfaces and helper classes for creating class-based effects.
+ * Interfaces and helper classes for class-based WLED effects.
+ *
+ * This headerfile provides all utilities for custom class-based WLED effect implementations.
  *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later

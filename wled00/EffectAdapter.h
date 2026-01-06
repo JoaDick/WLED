@@ -1,5 +1,9 @@
 /**
- * Helper classes for integrating class-based effects into the WLED framework.
+ * Interfaces and helper classes for class-based WLED effects.
+ *
+ * This headerfile provides the glue code between the EffectHandle (for the Segments) and the
+ * EffectAPI (for the custom effect implementations).
+ * All helper classes from here should never be used directly, neither by WLED nor by any effect.
  *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
@@ -7,10 +11,10 @@
 
 #pragma once
 
-#include <memory>
 #include <type_traits>
 
 #include "EffectAPI.h"
+#include "EffectHandle.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -66,10 +70,6 @@ private:
 };
 
 //--------------------------------------------------------------------------------------------------
-class EffectAdapter;
-
-/// Pointer to an EffectAdapter.
-using EffectAdapterPtr = std::unique_ptr<EffectAdapter>;
 
 /** TBD.
  */
@@ -119,9 +119,10 @@ public:
   bool updateSegment(Segment &seg) { return _fxController.updateSegment(seg); }
 
   /** Create a clone of this EffectAdapter instance, including the effect itself.
+   * @param seg The (new) segment for the clone wo work on.
    * @note Returns \c nullptr when the effect cannot be cloned.
    */
-  EffectAdapterPtr clone() { return do_clone(); }
+  EffectAdapterPtr clone(Segment &seg);
 
 protected:
   /** Constructor.
@@ -161,7 +162,7 @@ template <class FX_TYPE>
 class EffectAdapterImpl : public EffectAdapter
 {
 public:
-  static EffectAdapterPtr create(InitData &data) { return new (std::nothrow) EffectAdapterImpl(data); }
+  static EffectAdapterPtr do_create(InitData &data) { return new (std::nothrow) EffectAdapterImpl(data); }
 
 private:
   /// Constructor.
@@ -183,6 +184,15 @@ private:
 };
 
 template <class FX_TYPE>
-EffectAdapterPtr EffectAdapter::create(InitData &data) { return EffectAdapterImpl<FX_TYPE>::create(data); }
+EffectAdapterPtr EffectAdapter::create(InitData &data) { return EffectAdapterImpl<FX_TYPE>::do_create(data); }
+
+//--------------------------------------------------------------------------------------------------
+
+template <class FX_TYPE>
+void EffectHandle::createEffect(uint32_t now)
+{
+  reset();
+  _fxAdapter = EffectAdapter::create<FX_TYPE>(_seg, now);
+}
 
 //--------------------------------------------------------------------------------------------------

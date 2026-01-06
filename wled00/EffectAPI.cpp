@@ -1,6 +1,4 @@
 /**
- * Interfaces and helper classes for creating class-based effects.
- *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
  */
@@ -9,6 +7,7 @@
 #include "EffectAPI.h"
 
 //--------------------------------------------------------------------------------------------------
+// class FxEnv
 
 void FxEnv::showFallbackEffect()
 {
@@ -65,6 +64,7 @@ void FxEnv::updateTime(uint32_t now)
 }
 
 //--------------------------------------------------------------------------------------------------
+// class EffectBase
 
 EffectBase::EffectBase(FxSetup &fxs) { fxs.env.seg().fill(0); }
 

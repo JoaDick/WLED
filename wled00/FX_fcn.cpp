@@ -56,9 +56,10 @@ uint8_t  Segment::_clipStartY = 0;
 uint8_t  Segment::_clipStopY = 1;
 
 // copy constructor
-Segment::Segment(const Segment &orig) {
+Segment::Segment(const Segment &orig) : _effectHandle(*this) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  _effectHandle.adjustAfterRawCopy(*this);
   _t   = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
@@ -81,9 +82,10 @@ Segment::Segment(const Segment &orig) {
 }
 
 // move constructor
-Segment::Segment(Segment &&orig) noexcept {
+Segment::Segment(Segment &&orig) noexcept : _effectHandle(*this) {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
+  _effectHandle.adjustAfterRawMove(*this);
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
   orig.data = nullptr;
@@ -102,6 +104,7 @@ Segment& Segment::operator= (const Segment &orig) {
     p_free(pixels);
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
+    _effectHandle.adjustAfterRawCopy(*this);
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
@@ -135,6 +138,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     p_free(pixels);   // free old pixel buffer
     // move source data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
+    _effectHandle.adjustAfterRawMove(*this);
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
@@ -189,6 +193,7 @@ bool Segment::allocateData(size_t len) {
 }
 
 void Segment::deallocateData() {
+  _effectHandle.reset();
   if (!data) { _dataLen = 0; return; }
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
     //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
@@ -211,6 +216,7 @@ void Segment::deallocateData() {
 void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
+  _effectHandle.reset();
   if (data && _dataLen > 0) {
     if (_dataLen > FAIR_DATA_PER_SEG) deallocateData(); // do not keep large allocations
     else memset(data, 0, _dataLen);  // can prevent heap fragmentation
