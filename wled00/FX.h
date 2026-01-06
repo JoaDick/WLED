@@ -422,6 +422,9 @@ typedef enum mapping1D2D {
 
 class WS2812FX;
 
+using ModeFunction  = uint16_t(*)(); // pointer to mode function
+using ModeFunctions = std::vector<ModeFunction>;
+
 // segment, 76 bytes
 class Segment {
   public:
@@ -642,6 +645,8 @@ class Segment {
     template <class FX_TYPE>
     void createEffect(uint32_t now) { _effectHandle.createEffect<FX_TYPE>(now); }
 
+    uint16_t showEffect(const ModeFunctions& allModes) { return allModes[mode](); }
+
 #ifdef WLED_DEBUG
     size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }
 #endif
@@ -829,14 +834,7 @@ class Segment {
 
 // main "strip" class (108 bytes)
 class WS2812FX {
-  typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
-  typedef struct ModeData {
-    uint8_t     _id;   // mode (effect) id
-    mode_ptr    _fcn;  // mode (effect) function
-    const char *_data; // mode (effect) name and its UI control data
-    ModeData(uint8_t id, uint16_t (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
-  } mode_data_t;
 
   public:
 
@@ -875,9 +873,9 @@ class WS2812FX {
       _lastShow(0),
       _lastServiceShow(0)
     {
-      _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
-      _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size())
-      if (_mode.capacity() <= 1 || _modeData.capacity() <= 1) _modeCount = 1; // memory allocation failed only show Solid
+      _modeFunctions.reserve(_modeCount);  // allocate memory to prevent initial fragmentation (does not increase size())
+      _modeData.reserve(_modeCount);       // allocate memory to prevent initial fragmentation (does not increase size())
+      if (_modeFunctions.capacity() <= 1 || _modeData.capacity() <= 1) _modeCount = 1; // memory allocation failed only show Solid
       else setupEffectData();
     }
 
@@ -885,7 +883,7 @@ class WS2812FX {
       p_free(_pixels);
       p_free(_pixelCCT); // just in case
       d_free(customMappingTable);
-      _mode.clear();
+      _modeFunctions.clear();
       _modeData.clear();
       _segments.clear();
 #ifndef WLED_DISABLE_2D
@@ -948,7 +946,7 @@ class WS2812FX {
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;
     uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
-    uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
+    uint8_t addEffect(uint8_t id, ModeFunction mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
 
     inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
@@ -1057,8 +1055,8 @@ class WS2812FX {
     uint8_t _mainSegment;
 
     uint8_t                  _modeCount;
-    std::vector<mode_ptr>    _mode;     // SRAM footprint: 4 bytes per element
-    std::vector<const char*> _modeData; // mode (effect) name and its slider control data array
+    ModeFunctions            _modeFunctions;  // SRAM footprint: 4 bytes per element
+    std::vector<const char*> _modeData;       // mode (effect) name and its slider control data array
 
     show_callback _callback;
 
