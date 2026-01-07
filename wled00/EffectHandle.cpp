@@ -22,7 +22,7 @@ uint16_t EffectHandle::showEffect(uint32_t now)
 
 bool EffectHandle::onSegmentChanges()
 {
-  if (_fxAdapter && (_fxAdapter->updateSegment(*_seg) == false))
+  if (_fxAdapter && (_fxAdapter->updateSegment(*_fxData.seg) == false))
   {
     reset();
     return false;
@@ -35,25 +35,25 @@ void EffectHandle::cloneEffectFrom(const EffectHandle &src)
   reset();
   if (src._fxAdapter)
   {
-    _fxAdapter = src._fxAdapter->clone(*_seg);
+    _fxAdapter = src._fxAdapter->clone(*_fxData.seg);
   }
 }
 
 void EffectHandle::moveEffectFrom(EffectHandle &src) noexcept
 {
   _fxAdapter = std::move(src._fxAdapter);
-  updateSegment(*_seg);
+  updateSegment(*_fxData.seg);
 }
 
 void EffectHandle::updateSegment(Segment &seg)
 {
-  _seg = &seg;
+  _fxData.seg = &seg;
   onSegmentChanges();
 }
 
 void EffectHandle::adjustAfterRawCopy(Segment &newSeg)
 {
-  Segment &orgSeg = *_seg;
+  Segment &orgSeg = *_fxData.seg;
   adjustAfterRawMove(newSeg);
   cloneEffectTo(orgSeg._effectHandle);
 }
@@ -61,7 +61,7 @@ void EffectHandle::adjustAfterRawCopy(Segment &newSeg)
 void EffectHandle::adjustAfterRawMove(Segment &newSeg)
 {
   // release the unique_ptr at the original Segment's handle; the effect is now owned by this handle
-  _seg->_effectHandle._fxAdapter.release();
+  _fxData.seg->_effectHandle._fxAdapter.release();
   updateSegment(newSeg);
 }
 

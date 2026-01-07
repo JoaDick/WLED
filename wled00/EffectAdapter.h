@@ -78,13 +78,6 @@ private:
 class EffectAdapter
 {
 public:
-  /// Arguments for initializing the EffectAdapter.
-  struct InitData
-  {
-    Segment &seg; //< The segment wo work on.
-    uint32_t now; //< The current timestamp (in ms).
-  };
-
   // no copy & move - use clone() instead
   EffectAdapter(const EffectAdapter &) = delete;
   EffectAdapter(EffectAdapter &&) = delete;
@@ -92,21 +85,9 @@ public:
   EffectAdapter &operator=(EffectAdapter &&) = delete;
   virtual ~EffectAdapter() = default;
 
-  /** Create an EffectAdapter for the given \a FX_TYPE effect class.
-   * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
-   * @param seg The segment wo work on.
-   * @param now The current timestamp (in ms).
-   */
+  /// Create an EffectAdapter for the given \a FX_TYPE
   template <class FX_TYPE>
-  static EffectAdapterPtr create(Segment &seg, uint32_t now)
-  {
-    InitData data{seg, now};
-    return create<FX_TYPE>(data);
-  }
-
-  /// Create an EffectAdapter for the given \a FX_TYPE effect class with the given \a initData
-  template <class FX_TYPE>
-  static EffectAdapterPtr create(InitData &initData);
+  static EffectAdapterPtr create(EffectInitData &initData);
 
   /** Render the effect's pixel magic on the segment.
    * @param now The current timestamp (in ms).
@@ -133,7 +114,7 @@ protected:
    * @param effect The effect instance to control.
    * Be aware that \a effect is not initialized yet, so don't use it here!
    */
-  EffectAdapter(InitData &data, RawEffectPtr effect) : _fxController{data.seg, data.now, effect} {}
+  EffectAdapter(EffectInitData &data, RawEffectPtr effect) : _fxController{*data.seg, data.now, effect} {}
 
   /** Pseudo-copy-constructor.
    * @param other The original instance to copy from.
@@ -166,11 +147,11 @@ template <class FX_TYPE>
 class EffectAdapterImpl : public EffectAdapter
 {
 public:
-  static EffectAdapterPtr do_create(InitData &data) { return EffectAdapterPtr{new (std::nothrow) EffectAdapterImpl(data)}; }
+  static EffectAdapterPtr do_create(EffectInitData &data) { return EffectAdapterPtr{new (std::nothrow) EffectAdapterImpl(data)}; }
 
 private:
   /// Constructor.
-  explicit EffectAdapterImpl(InitData &data) : EffectAdapter{data, &_effect}, _effect{getFxSetup()} {}
+  explicit EffectAdapterImpl(EffectInitData &data) : EffectAdapter{data, &_effect}, _effect{getFxSetup()} {}
 
   /// Copy constructor.
   EffectAdapterImpl(const EffectAdapterImpl &other) : EffectAdapter{other, &_effect}, _effect{other._effect} {}
@@ -188,15 +169,15 @@ private:
 };
 
 template <class FX_TYPE>
-EffectAdapterPtr EffectAdapter::create(InitData &data) { return EffectAdapterImpl<FX_TYPE>::do_create(data); }
+EffectAdapterPtr EffectAdapter::create(EffectInitData &data) { return EffectAdapterImpl<FX_TYPE>::do_create(data); }
 
 //--------------------------------------------------------------------------------------------------
 
 template <class FX_TYPE>
 void EffectHandle::createEffect(uint32_t now)
 {
-  reset();
-  _fxAdapter = EffectAdapter::create<FX_TYPE>(*_seg, now);
+  _fxData.now = now;
+  _fxAdapter = EffectAdapter::create<FX_TYPE>(_fxData);
 }
 
 //--------------------------------------------------------------------------------------------------

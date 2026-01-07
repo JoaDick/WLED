@@ -645,7 +645,7 @@ class Segment {
     template <class FX_TYPE>
     void createEffect(uint32_t now) { _effectHandle.createEffect<FX_TYPE>(now); }
 
-    uint16_t showEffect(const ModeFunctions& allModes) { return allModes[mode](); }
+    uint16_t showEffect(const ModeFunctions& allModes, uint32_t now);
 
 #ifdef WLED_DEBUG
     size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }

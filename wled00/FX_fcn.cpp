@@ -148,6 +148,21 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   return *this;
 }
 
+uint16_t Segment::showEffect(const ModeFunctions& allModes, uint32_t now) {
+  uint16_t frametime = 0;
+  if(_effectHandle.isEmpty()) {
+    // Note: class-based effects abuse the mode-function as factory. So, calling this either renders
+    // the effect immediately via mode-function (and the handle remains empty), or creates a new
+    // instance of a class-based effect.
+    // see mode_EffectClass()
+    frametime = allModes[mode]();
+  }
+  // Note: calling this either does nothing for "normal" mode-functions (when the handle is still
+  // empty), or renders the previously created class-based effect.
+  frametime += _effectHandle.showEffect(now);
+  return frametime;
+}
+
 // allocates effect data buffer on heap and initialises (erases) it
 bool Segment::allocateData(size_t len) {
   if (len == 0) return false;    // nothing to do
@@ -562,6 +577,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   if (fx != mode) {
     startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     mode = fx;
+    _effectHandle.reset();
     int sOpt;
     // load default values from effect string
     if (loadDefaults) {
@@ -1298,7 +1314,7 @@ void WS2812FX::service() {
         seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
-        frameDelay = seg.showEffect(_modeFunctions);  // run new/current mode (needed for bri workaround)
+        frameDelay = seg.showEffect(_modeFunctions, now);  // run new/current mode (needed for bri workaround)
         seg.call++;
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
@@ -1309,7 +1325,7 @@ void WS2812FX::service() {
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
-          frameDelay = min(frameDelay, unsigned(segO->showEffect(_modeFunctions)));  // run old mode (needed for bri workaround; semaphore!!)
+          frameDelay = min(frameDelay, unsigned(segO->showEffect(_modeFunctions, now)));  // run old mode (needed for bri workaround; semaphore!!)
           segO->call++;                     // increment old mode run counter
           Segment::modeBlend(false);        // unset semaphore
         }

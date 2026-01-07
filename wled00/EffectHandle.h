@@ -16,9 +16,18 @@ class Segment;
 class EffectAdapter;
 using EffectAdapterPtr = std::unique_ptr<EffectAdapter>;
 
+/// Internal use only.
+/// Arguments for creating a new EffectAdapter.
+struct EffectInitData
+{
+  Segment *seg; //< The segment wo work on.
+  uint32_t now; //< The current timestamp (in ms).
+};
+
 /** This class represents the one and only interface for Segments to interact with class-based WLED effects.
- * It takes full responsibility over the effect's lifetime (create, destroy, copy/clone, move).
- * @note Be aware that some effects might not be able to handle dimention changes or cannor be
+ * It provides the functionality to create, destroy and render the effect; therefore it also claims
+ * full responsibility over the effect's lifetime (create, destroy, copy/clone, move).
+ * @note Be aware that some effects might not be able to handle dimension changes or cannot be
  * copied/cloned. In that case, the contained effect instance is destroyed, resulting in an empty
  * handle. It is then up to the Segment to create a new effect instance at the next frame.
  */
@@ -26,19 +35,23 @@ class EffectHandle
 {
 public:
   /** Constructor.
-   * @param newSeg The Segment where this handle lives inside.
+   * @param seg The Segment where this handle lives inside.
    */
-  explicit EffectHandle(Segment &seg) : _seg{&seg} {}
+  explicit EffectHandle(Segment &seg) : _fxData{&seg, 0} {}
 
   /** Create an instance of the given \a FX_TYPE effect class inside this handle.
    * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
    * @param now The current timestamp (in ms).
+   * @note To minimize the code size of this templated function, it does not destroy the old effect
+   * before the new one is created.
+   * So, to reduce heap usage, ensure that this handle is empty -- by calling reset() -- before
+   * calling this method.
    */
   template <class FX_TYPE>
   void createEffect(uint32_t now);
 
   /// Check if this handle does not contain an effect instance.
-  bool isEmpty() const { return _fxAdapter.get() != nullptr; }
+  bool isEmpty() const { return _fxAdapter.get() == nullptr; }
 
   /** Render the contained effect instance on the Segment (if any).
    * This method does nothing when the handle empty.
@@ -110,7 +123,7 @@ public:
 private:
   void updateSegment(Segment &seg);
 
-  Segment *_seg = nullptr;
+  EffectInitData _fxData;
   EffectAdapterPtr _fxAdapter;
 };
 

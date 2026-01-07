@@ -89,7 +89,7 @@ public:
   void setBroken() { _effect = nullptr; }
 
   /// Check if the effect is broken.
-  bool isBroken() const { return _effect != nullptr; }
+  bool isBroken() const { return _effect == nullptr; }
 
   /** Set the effect's frametime.
    * @param ms Delay between calling the effect's rendering function (in ms); 0 means use default.
@@ -98,8 +98,14 @@ public:
    */
   void setFrametime(uint16_t ms) { _frametime = ms; }
 
+  /** Returns \c true only for the during the very first frame.
+   * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor.
+   */
+  bool isFistFrame() const { return _seg->call == 0; }
+
   /** Get persistent effect data from the segment (for legacy compatibility).
    * @note Effect implementations shall use this instead of \c SEGENV
+   * Nevertheless, prefer your own effect class member variables over this.
    */
   SegEnv &segenv(); // not implemented yet
 
