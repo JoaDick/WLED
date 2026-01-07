@@ -147,6 +147,13 @@ private:
   bool _is2D = false;
 };
 
+/** Pointer to a new style of free effect-function (as alternative for the existing mode-function).
+ * The essential difference is that it gets an \c FxEnv as argument (for rendering), and doesn't
+ * have a returnvalue. As a consequence (but only if really needed), a specific frametime has to be
+ * announced via \a env.setFrametime()
+ */
+using EffectFunction = void (*)(FxEnv &env);
+
 //--------------------------------------------------------------------------------------------------
 
 /** Properties of an effect.

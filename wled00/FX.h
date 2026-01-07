@@ -422,7 +422,7 @@ typedef enum mapping1D2D {
 
 class WS2812FX;
 
-using ModeFunction  = uint16_t(*)(); // pointer to mode function
+using ModeFunction  = uint16_t(*)(); // pointer to mode-function
 using ModeFunctions = std::vector<ModeFunction>;
 
 // segment, 76 bytes
@@ -642,8 +642,9 @@ class Segment {
     Segment& operator= (const Segment &orig); // copy assignment
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
-    template <class FX_TYPE>
-    void createEffect(uint32_t now) { _effectHandle.createEffect<FX_TYPE>(now); }
+    /// Create an instance of effect class type \a FX_CLASS and forward all (optional) \a fxArgs to its constructor.
+    template <class FX_CLASS, typename... FX_ARGS>
+    void createEffect(uint32_t now, FX_ARGS &&...fxArgs) { _effectHandle.createEffect<FX_CLASS>(now, std::forward<FX_ARGS>(fxArgs)...); }
 
     uint16_t showEffect(const ModeFunctions& allModes, uint32_t now);
 

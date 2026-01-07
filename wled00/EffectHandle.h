@@ -39,16 +39,18 @@ public:
    */
   explicit EffectHandle(Segment &seg) : _fxData{&seg, 0} {}
 
-  /** Create an instance of the given \a FX_TYPE effect class inside this handle.
-   * @tparam FX_TYPE Class type of concrete effect implementation. Must be a child of EffectBase.
+  /** Create an instance of effect class type \a FX_CLASS inside this handle.
+   * @tparam FX_CLASS Class type of concrete effect implementation. Must be a child of EffectBase.
+   * @tparam FX_ARGS Constructor argument pack for FX_CLASS.
    * @param now The current timestamp (in ms).
+   * @param fxArgs All these (optional) arguments are forwarded to the constructor of \a FX_CLASS
    * @note To minimize the code size of this templated function, it does not destroy the old effect
    * before the new one is created.
    * So, to reduce heap usage, ensure that this handle is empty -- by calling reset() -- before
    * calling this method.
    */
-  template <class FX_TYPE>
-  void createEffect(uint32_t now);
+  template <class FX_CLASS, typename... FX_ARGS>
+  void createEffect(uint32_t now, FX_ARGS &&...fxArgs);
 
   /// Check if this handle does not contain an effect instance.
   bool isEmpty() const { return _fxAdapter.get() == nullptr; }

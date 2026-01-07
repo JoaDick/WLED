@@ -154,7 +154,6 @@ uint16_t Segment::showEffect(const ModeFunctions& allModes, uint32_t now) {
     // Note: class-based effects abuse the mode-function as factory. So, calling this either renders
     // the effect immediately via mode-function (and the handle remains empty), or creates a new
     // instance of a class-based effect.
-    // see mode_EffectClass()
     frametime = allModes[mode]();
   }
   // Note: calling this either does nothing for "normal" mode-functions (when the handle is still
