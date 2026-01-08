@@ -20,7 +20,7 @@
 
 /** TBD.
  */
-class EffectController : private FxSetup, private FxEnv, private FxProperties
+class EffectController : private SegEnv, private FxSetup, private FxEnv, private FxProperties
 {
 public:
   // no copy & move
@@ -34,7 +34,7 @@ public:
    * @param effect The effect instance to control.
    * @note Be aware that \a effect is not initialized yet, so don't use it here!
    */
-  EffectController(Segment &seg, uint32_t now, RawEffectPtr effect) : FxEnv{seg, now}
+  EffectController(Segment &seg, uint32_t now, RawEffectPtr effect) : FxEnv{seg, *this, now}
   {
     FxEnv::storeEffect(effect);
   }
@@ -56,7 +56,12 @@ public:
    * @param now The current timestamp (in ms).
    * @return Specific frametime (in ms), or 0 to use WLED's default setting.
    */
-  uint16_t showEffect(uint32_t now) { return FxEnv::showEffect(now); }
+  uint16_t showEffect(uint32_t now)
+  {
+    const uint16_t frametime = FxEnv::showEffect(now);
+    SegEnv::next();
+    return frametime;
+  }
 
   /** Call this method when the segment or any of its setting has changed.
    * @param seg The changed segment wo work on from now.
@@ -67,8 +72,12 @@ public:
 
 private:
   EffectController(const EffectController &) = default;
+
   FxProperties &props() override { return *this; }
+
   FxEnv &env() override { return *this; }
+
+  void onSegEnvAllocFailed() override { FxEnv::setBroken(); }
 };
 
 //--------------------------------------------------------------------------------------------------

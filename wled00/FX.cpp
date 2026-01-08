@@ -672,6 +672,15 @@ static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width;!,!;!";
  * Blink several LEDs in random colors on, reset, repeat.
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
+class FX_Twinkle : public EffectBase
+{
+public:
+  explicit FX_Twinkle(FxSetup &fxs) : EffectBase(fxs) {}
+
+private:
+  void showEffect(FxEnv &env) override { env.setFrametime(mode_twinkle()); }
+
+// ----- start of the unmodified effect function -----
 uint16_t mode_twinkle(void) {
   SEGMENT.fade_out(224);
 
@@ -701,7 +710,9 @@ uint16_t mode_twinkle(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; //pixels
+// ----- end of the unmodified effect function -----
+};
+static const char _data_FX_MODE_TWINKLE[] PROGMEM = "1 Twinkle FX@!,!;!,!;!;;m12=0"; //pixels
 
 
 /*
@@ -2380,22 +2391,22 @@ static const char _data_FX_MODE_COLORTWINKLE[] PROGMEM = "Colortwinkles@Fade spe
 
 
 //Calm effect, like a lake at night
-uint16_t mode_lake() {
-  unsigned sp = SEGMENT.speed/10;
+void fx_lake(FxEnv& env) {
+  Segment& seg = env.seg();
+
+  unsigned sp = seg.speed/10;
   int wave1 = beatsin8_t(sp +2, -64,64);
   int wave2 = beatsin8_t(sp +1, -64,64);
   int wave3 = beatsin8_t(sp +2,   0,80);
 
-  for (unsigned i = 0; i < SEGLEN; i++)
+  for (unsigned i = 0; i < env.seglen(); i++)
   {
     int index = cos8_t((i*15)+ wave1)/2 + cubicwave8((i*23)+ wave2)/2;
     uint8_t lum = (index > wave3) ? index - wave3 : 0;
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, 0, lum));
+    seg.setPixelColor(i, seg.color_from_palette(index, false, false, 0, lum));
   }
-
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_LAKE[] PROGMEM = "Lake@!;Fx;!";
+static const char _data_FX_MODE_LAKE[] PROGMEM = "1 Lake FX@!;Fx;!";
 
 
 // meteor effect & meteor smooth (merged by @dedehai)
@@ -3764,7 +3775,7 @@ uint16_t mode_starburst(void) {
   return FRAMETIME;
 }
 #undef STARBURST_MAX_FRAG
-static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
+static const char _data_FX_MODE_STARBURST[] PROGMEM = "1 Fireworks Starburst FX@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
 #endif // WLED_PS_DONT_REPLACE_1DFX
 
 #if defined(WLED_PS_DONT_REPLACE_1D_FX) || defined(WLED_PS_DONT_REPLACE_2D_FX)
@@ -4088,24 +4099,25 @@ static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;
 / Plasma Effect
 / adapted from https://github.com/atuline/FastLED-Demos/blob/master/plasma/plasma.ino
 */
-uint16_t mode_plasma(void) {
+void fx_plasma(FxEnv& env) {
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
+
   // initialize phases on start
-  if (SEGENV.call == 0) {
-    SEGENV.aux0 = hw_random8(0,2);  // add a bit of randomness
+  if (env.isFistFrame()) {
+    segenv.aux0 = hw_random8(0,2);  // add a bit of randomness
   }
-  unsigned thisPhase = beatsin8_t(6+SEGENV.aux0,-64,64);
-  unsigned thatPhase = beatsin8_t(7+SEGENV.aux0,-64,64);
+  unsigned thisPhase = beatsin8_t(6+segenv.aux0,-64,64);
+  unsigned thatPhase = beatsin8_t(7+segenv.aux0,-64,64);
 
-  for (unsigned i = 0; i < SEGLEN; i++) {   // For each of the LED's in the strand, set color &  brightness based on a wave as follows:
-    unsigned colorIndex = cubicwave8((i*(2+ 3*(SEGMENT.speed >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
-                              + cos8_t((i*(1+ 2*(SEGMENT.speed >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
-    unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (SEGMENT.intensity>>1))));
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
+  for (unsigned i = 0; i < env.seglen(); i++) {   // For each of the LED's in the strand, set color &  brightness based on a wave as follows:
+    unsigned colorIndex = cubicwave8((i*(2+ 3*(seg.speed >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
+                              + cos8_t((i*(1+ 2*(seg.speed >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
+    unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (seg.intensity>>1))));
+    seg.setPixelColor(i, seg.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
   }
-
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_PLASMA[] PROGMEM = "Plasma@Phase,!;!;!";
+static const char _data_FX_MODE_PLASMA[] PROGMEM = "1 Plasma FX@Phase,!;!;!";
 
 
 /*
@@ -4730,28 +4742,28 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
   Blends random colors across palette
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
-uint16_t mode_blends(void) {
-  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
-  unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
-  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
-  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
-  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
-  unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
+void fx_blends(FxEnv& env) {
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
+
+  const unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
+  uint32_t* pixels;
+  if (!segenv.getFxDataArray(pixels, pixelLen + 1)) return;
+  uint8_t blendSpeed = map(seg.intensity, 0, UINT8_MAX, 10, 128);
+  unsigned shift = (strip.now * ((seg.speed >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    pixels[i] = color_blend(pixels[i], seg.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
     shift += 3;
   }
 
   unsigned offset = 0;
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, pixels[offset++]);
+  for (unsigned i = 0; i < env.seglen(); i++) {
+    seg.setPixelColor(i, pixels[offset++]);
     if (offset >= pixelLen) offset = 0;
   }
-
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_BLENDS[] PROGMEM = "Blends@Shift speed,Blend speed;;!";
+static const char _data_FX_MODE_BLENDS[] PROGMEM = "1 Blends FX@Shift speed,Blend speed;;!";
 
 
 /*
@@ -4993,19 +5005,21 @@ class AuroraWave {
     bool stillAlive() { return alive; }
 };
 
-uint16_t mode_aurora(void) {
-  AuroraWave* waves;
-  SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
-  if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {
-    return mode_static();
-  }
-  waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
+void fx_aurora(FxEnv& env) {
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
 
-  // note: on first call, SEGENV.data is zero -> all waves are dead and will be initialized
-  for (int i = 0; i < SEGENV.aux1; i++) {
-    waves[i].update(SEGLEN, SEGMENT.speed);
+  const uint16_t wavecount = map(seg.intensity, 0, 255, 2, W_MAX_COUNT);
+  if(segenv.aux1 != wavecount) segenv.reset();
+  segenv.aux1 = wavecount;
+
+  AuroraWave* waves;
+  if(!segenv.getFxDataArray(waves, wavecount)) return;
+
+  for (int i = 0; i < wavecount; i++) {
+    waves[i].update(env.seglen(), seg.speed);
     if (!(waves[i].stillAlive())) {
-      waves[i].init(SEGLEN, SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
+      waves[i].init(env.seglen(), seg.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
     }
     waves[i].updateCachedValues();
   }
@@ -5016,20 +5030,19 @@ uint16_t mode_aurora(void) {
   if (SEGCOLOR(2)) backlight++;
   backlight = gamma8inv(backlight); // preserve backlight when using gamma correction
 
-  for (unsigned i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < env.seglen(); i++) {
     CRGBW mixedRgb = CRGBW(backlight, backlight, backlight);
 
-    for (int j = 0; j < SEGENV.aux1; j++) {
+    for (int j = 0; j < wavecount; j++) {
       CRGBW rgb = waves[j].getColorForLED(i);
       mixedRgb = color_add(mixedRgb, rgb); // sum all waves influencing this pixel
     }
 
-    SEGMENT.setPixelColor(i, mixedRgb);
+    seg.setPixelColor(i, mixedRgb);
   }
-  return FRAMETIME;
 }
+static const char _data_FX_MODE_AURORA[] PROGMEM = "1 Aurora FX@!,!;1,2,3;!;;sx=24,pal=50";
 
-static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
 // WLED-SR effects
 
@@ -7136,33 +7149,34 @@ typedef struct Plasphase {
   int16_t    thatphase;
 } plasphase;
 
-uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
+void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
+
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
-  if (!SEGENV.allocateData(sizeof(plasphase))) return mode_static(); //allocation failed
-  Plasphase* plasmoip = reinterpret_cast<Plasphase*>(SEGENV.data);
+  Plasphase* plasmoip;
+  if(!segenv.getFxData(plasmoip)) return;
 
   um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
 
-  SEGMENT.fadeToBlackBy(32);
+  seg.fadeToBlackBy(32);
 
   plasmoip->thisphase += beatsin8_t(6,-4,4);                          // You can change direction and speed individually.
   plasmoip->thatphase += beatsin8_t(7,-4,4);                          // Two phase values to make a complex pattern. By Andrew Tuline.
 
-  for (unsigned i = 0; i < SEGLEN; i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
+  for (unsigned i = 0; i < env.seglen(); i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
     // updated, similar to "plasma" effect - softhack007
-    uint8_t thisbright = cubicwave8(((i*(1 + (3*SEGMENT.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
-    thisbright += cos8_t(((i*(97 +(5*SEGMENT.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
+    uint8_t thisbright = cubicwave8(((i*(1 + (3*seg.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
+    thisbright += cos8_t(((i*(97 +(5*seg.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
 
     uint8_t colorIndex=thisbright;
-    if (volumeSmth * SEGMENT.intensity / 64 < thisbright) {thisbright = 0;}
+    if (volumeSmth * seg.intensity / 64 < thisbright) {thisbright = 0;}
 
-    SEGMENT.addPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
+    seg.addPixelColor(i, color_blend(SEGCOLOR(1), seg.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
   }
-
-  return FRAMETIME;
 } // mode_plasmoid()
-static const char _data_FX_MODE_PLASMOID[] PROGMEM = "Plasmoid@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
+static const char _data_FX_MODE_PLASMOID[] PROGMEM = "1 Plasmoid FX@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
 //////////////////////
@@ -10456,7 +10470,7 @@ uint16_t mode_particleStarburst(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_STARBURST[] PROGMEM = "PS Starburst@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
+static const char _data_FX_MODE_PS_STARBURST[] PROGMEM = "1 PS Starburst FX@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
 
 /*
   Particle based 1D GEQ effect, each frequency bin gets an emitter, distributed over the strip
@@ -10967,24 +10981,264 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
 
+
+/** Softly floating colorful clouds.
+ * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
+ * It was initially intended for rather unobtrusive ambient lights (with very slow speed settings).
+ * Nevertheless, it appears completely different and quite vibrant when the sliders are moved near
+ * to their limits. No matter in which direction or in which combination...
+ * Ported to WLED from https://github.com/JoaDick/EyeCandy/blob/master/ColorClouds.h
+ */
+void fx_ColorClouds(FxEnv& env)
+{
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
+
+  // Set random start points for clouds and color.
+  if(env.isFistFrame()) {
+    segenv.aux0 = hw_random16();
+    segenv.aux1 = hw_random16();
+  }
+  const uint32_t volX0 = segenv.aux0;
+  const uint32_t hueX0 = segenv.aux1;
+  const uint8_t hueOffset0 = volX0 + hueX0;
+
+  // Put more emphasis on the red'ish colors when true (or begin & end of palette).
+  const bool moreRed = seg.check3;
+
+  // Higher values make the clouds move faster.
+  const uint32_t volSpeed = 1 + seg.speed;
+  
+  // Higher values make the color change faster.
+  const uint32_t hueSpeed = 1 + seg.intensity;
+  
+  // Higher values make more clouds (but smaller ones).
+  const uint32_t volSqueeze = 8 + seg.custom1;
+  
+  // Higher values make the clouds more colorful.
+  const uint32_t hueSqueeze = seg.custom2;
+
+  // Higher values make larger gaps between the clouds.
+  const long volCutoff   = 12500 + seg.custom3 * 900;
+  const long volSaturate = 52000;
+  // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
+
+  const uint32_t now = strip.now;
+  const uint32_t volT = now * volSpeed / 8;
+  const uint32_t hueT = now * hueSpeed / 8;
+  const uint8_t hueOffset = beat88(64) >> 8;
+
+  for (int i = 0; i < env.seglen(); i++) {
+    const uint32_t volX = i * volSqueeze * 64;
+    long vol = perlin16(volX0 + volX, volT);
+    vol = map(vol, volCutoff, volSaturate, 0, 255);
+    vol = constrain(vol, 0, 255);
+
+    const uint32_t hueX = i * hueSqueeze * 8;
+    uint8_t hue = perlin16(hueX0 + hueX, hueT) >> 7;
+    hue += hueOffset0;
+    hue += hueOffset;
+    if (moreRed) {
+      hue = cos8_t(128 + hue / 2);
+    }
+
+    uint32_t pixel;
+    if(seg.palette) { pixel = seg.color_from_palette(hue, false, true, 0, vol); }
+    else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
+
+    // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
+    // Unfortunately this doesn't always work properly when gamma correction for color is enabled.
+    // So, when using this effect standalone, also try it without color gamma correction.
+    if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
+      pixel = 0;
+    }
+
+    seg.setPixelColor(i, pixel);
+  }
+}
+static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// backup of converted effects examples
+
+/*
+ * Blink several LEDs in random colors on, reset, repeat.
+ * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ */
+uint16_t mode_twinkle(void) {
+  SEGMENT.fade_out(224);
+
+  uint32_t cycleTime = 20 + (255 - SEGMENT.speed)*5;
+  uint32_t it = strip.now / cycleTime;
+  if (it != SEGENV.step)
+  {
+    unsigned maxOn = map(SEGMENT.intensity, 0, 255, 1, SEGLEN); // make sure at least one LED is on
+    if (SEGENV.aux0 >= maxOn)
+    {
+      SEGENV.aux0 = 0;
+      SEGENV.aux1 = hw_random(); //new seed for our PRNG
+    }
+    SEGENV.aux0++;
+    SEGENV.step = it;
+  }
+
+  unsigned PRNG16 = SEGENV.aux1;
+
+  for (unsigned i = 0; i < SEGENV.aux0; i++)
+  {
+    PRNG16 = (uint16_t)(PRNG16 * 2053) + 13849; // next 'random' number
+    uint32_t p = (uint32_t)SEGLEN * (uint32_t)PRNG16;
+    unsigned j = p >> 16;
+    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_TWINKLE_org[] PROGMEM = "1 Twinkle org@!,!;!,!;!;;m12=0"; //pixels
+
+
+/*
+/ Plasma Effect
+/ adapted from https://github.com/atuline/FastLED-Demos/blob/master/plasma/plasma.ino
+*/
+uint16_t mode_plasma(void) {
+  // initialize phases on start
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random8(0,2);  // add a bit of randomness
+  }
+  unsigned thisPhase = beatsin8_t(6+SEGENV.aux0,-64,64);
+  unsigned thatPhase = beatsin8_t(7+SEGENV.aux0,-64,64);
+
+  for (unsigned i = 0; i < SEGLEN; i++) {   // For each of the LED's in the strand, set color &  brightness based on a wave as follows:
+    unsigned colorIndex = cubicwave8((i*(2+ 3*(SEGMENT.speed >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
+                              + cos8_t((i*(1+ 2*(SEGMENT.speed >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
+    unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (SEGMENT.intensity>>1))));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
+  }
+
+  return FRAMETIME;
+}
+const char _data_FX_MODE_PLASMA_org[] PROGMEM = "1 Plasma org@Phase,!;!;!";
+
+
+/*
+  Blends random colors across palette
+  Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
+*/
+uint16_t mode_blends(void) {
+  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
+  unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
+  unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
+
+  for (unsigned i = 0; i < pixelLen; i++) {
+    pixels[i] = color_blend(pixels[i], SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    shift += 3;
+  }
+
+  unsigned offset = 0;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, pixels[offset++]);
+    if (offset >= pixelLen) offset = 0;
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_BLENDS_org[] PROGMEM = "1 Blends org@Shift speed,Blend speed;;!";
+
+
+uint16_t mode_aurora(void) {
+  AuroraWave* waves;
+  SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
+  if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {
+    return mode_static();
+  }
+  waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
+
+  // note: on first call, SEGENV.data is zero -> all waves are dead and will be initialized
+  for (int i = 0; i < SEGENV.aux1; i++) {
+    waves[i].update(SEGLEN, SEGMENT.speed);
+    if (!(waves[i].stillAlive())) {
+      waves[i].init(SEGLEN, SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
+    }
+    waves[i].updateCachedValues();
+  }
+
+  uint8_t backlight = 0; // note: original code used 1, with inverse gamma applied background would never be black
+  if (SEGCOLOR(0)) backlight++;
+  if (SEGCOLOR(1)) backlight++;
+  if (SEGCOLOR(2)) backlight++;
+  backlight = gamma8inv(backlight); // preserve backlight when using gamma correction
+
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    CRGBW mixedRgb = CRGBW(backlight, backlight, backlight);
+
+    for (int j = 0; j < SEGENV.aux1; j++) {
+      CRGBW rgb = waves[j].getColorForLED(i);
+      mixedRgb = color_add(mixedRgb, rgb); // sum all waves influencing this pixel
+    }
+
+    SEGMENT.setPixelColor(i, mixedRgb);
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_AURORA_org[] PROGMEM = "1 Aurora org@!,!;1,2,3;!;;sx=24,pal=50";
+
+
+uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
+  // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
+  if (!SEGENV.allocateData(sizeof(plasphase))) return mode_static(); //allocation failed
+  Plasphase* plasmoip = reinterpret_cast<Plasphase*>(SEGENV.data);
+
+  um_data_t *um_data = getAudioData();
+  float   volumeSmth   = *(float*)  um_data->u_data[0];
+
+  SEGMENT.fadeToBlackBy(32);
+
+  plasmoip->thisphase += beatsin8_t(6,-4,4);                          // You can change direction and speed individually.
+  plasmoip->thatphase += beatsin8_t(7,-4,4);                          // Two phase values to make a complex pattern. By Andrew Tuline.
+
+  for (unsigned i = 0; i < SEGLEN; i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
+    // updated, similar to "plasma" effect - softhack007
+    uint8_t thisbright = cubicwave8(((i*(1 + (3*SEGMENT.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
+    thisbright += cos8_t(((i*(97 +(5*SEGMENT.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
+
+    uint8_t colorIndex=thisbright;
+    if (volumeSmth * SEGMENT.intensity / 64 < thisbright) {thisbright = 0;}
+
+    SEGMENT.addPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
+  }
+
+  return FRAMETIME;
+} // mode_plasmoid()
+static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "1 Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 // add (or replace reserved) effect mode and data into vector
 // use id==255 to find unallocated gaps (with "Reserved" data string)
 // if vector size() is smaller than id (single) data is appended at the end (regardless of id)
 // return the actual id used for the effect or 255 if the add failed.
-uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name) {
+uint8_t WS2812FX::addEffect(uint8_t id, ModeFunction mode_fn, const char *mode_name) {
   if (id == 255) { // find empty slot
-    for (size_t i=1; i<_mode.size(); i++) if (_modeData[i] == _data_RESERVED) { id = i; break; }
+    for (size_t i=1; i<_modeFunctions.size(); i++) if (_modeData[i] == _data_RESERVED) { id = i; break; }
   }
-  if (id < _mode.size()) {
+  if (id < _modeFunctions.size()) {
     if (_modeData[id] != _data_RESERVED) return 255; // do not overwrite an already added effect
-    _mode[id]     = mode_fn;
-    _modeData[id] = mode_name;
+    _modeFunctions[id] = mode_fn;
+    _modeData[id]      = mode_name;
     return id;
-  } else if (_mode.size() < 255) { // 255 is reserved for indicating the effect wasn't added
-    _mode.push_back(mode_fn);
+  } else if (_modeFunctions.size() < 255) { // 255 is reserved for indicating the effect wasn't added
+    _modeFunctions.push_back(mode_fn);
     _modeData.push_back(mode_name);
-    if (_modeCount < _mode.size()) _modeCount++;
-    return _mode.size() - 1;
+    if (_modeCount < _modeFunctions.size()) _modeCount++;
+    return _modeFunctions.size() - 1;
   } else {
     return 255; // The vector is full so return 255
   }
@@ -10992,11 +11246,11 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
 
 void WS2812FX::setupEffectData() {
   // Solid must be first! (assuming vector is empty upon call to setup)
-  _mode.push_back(&mode_static);
+  _modeFunctions.push_back(&mode_static);
   _modeData.push_back(_data_FX_MODE_STATIC);
   // fill reserved word in case there will be any gaps in the array
   for (size_t i=1; i<_modeCount; i++) {
-    _mode.push_back(&mode_static);
+    _modeFunctions.push_back(&mode_static);
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
@@ -11018,7 +11272,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
-  addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
+  addEffect(FX_MODE_TWINKLE, mode_twinkle, _data_FX_MODE_TWINKLE_org);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
@@ -11038,7 +11292,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
-  addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
+  addEffect(FX_MODE_AURORA, mode_aurora, _data_FX_MODE_AURORA_org);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
@@ -11073,7 +11327,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_NOISE16_3, &mode_noise16_3, _data_FX_MODE_NOISE16_3);
   addEffect(FX_MODE_NOISE16_4, &mode_noise16_4, _data_FX_MODE_NOISE16_4);
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
-  addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
+  // addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
   //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
@@ -11096,7 +11350,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
   #ifdef WLED_PS_DONT_REPLACE_1D_FX
   addEffect(FX_MODE_ROLLINGBALLS, &rolling_balls, _data_FX_MODE_ROLLINGBALLS);
-  addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
+  // addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
   addEffect(FX_MODE_DANCING_SHADOWS, &mode_dancing_shadows, _data_FX_MODE_DANCING_SHADOWS);
   #endif
   addEffect(FX_MODE_CANDLE, &mode_candle, _data_FX_MODE_CANDLE);
@@ -11106,7 +11360,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SINELON, &mode_sinelon, _data_FX_MODE_SINELON);
   addEffect(FX_MODE_SINELON_DUAL, &mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
   addEffect(FX_MODE_SINELON_RAINBOW, &mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
-  addEffect(FX_MODE_PLASMA, &mode_plasma, _data_FX_MODE_PLASMA);
+  addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
   addEffect(FX_MODE_PERCENT, &mode_percent, _data_FX_MODE_PERCENT);
   addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
   addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
@@ -11121,7 +11375,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
   addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
-  addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
+  addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
@@ -11132,7 +11386,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
   addEffect(FX_MODE_MATRIPIX, &mode_matripix, _data_FX_MODE_MATRIPIX);
   addEffect(FX_MODE_GRAVIMETER, &mode_gravimeter, _data_FX_MODE_GRAVIMETER);
-  addEffect(FX_MODE_PLASMOID, &mode_plasmoid, _data_FX_MODE_PLASMOID);
+  addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
   addEffect(FX_MODE_PUDDLES, &mode_puddles, _data_FX_MODE_PUDDLES);
   addEffect(FX_MODE_MIDNOISE, &mode_midnoise, _data_FX_MODE_MIDNOISE);
   addEffect(FX_MODE_NOISEMETER, &mode_noisemeter, _data_FX_MODE_NOISEMETER);
@@ -11232,7 +11486,7 @@ addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLA
 addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
 addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
 addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
-addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
+// addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
 addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
@@ -11240,4 +11494,17 @@ addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SON
 addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
+// --- class-based effect examples ---
+addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
+addEffectFunction<fx_lake>(*this, 255, _data_FX_MODE_LAKE);
+addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
+addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
+addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
+addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
+addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
+
+addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);
+
+addModeFunction<mode_starburst>(*this, 255, _data_FX_MODE_STARBURST);
+addModeFunction<mode_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
 }
