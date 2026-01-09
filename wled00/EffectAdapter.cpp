@@ -11,12 +11,13 @@
 
 bool EffectController::updateSegment(Segment &seg)
 {
+  SegEnv::updateSegment(seg);
   const bool dimensionChanged = FxEnv::updateSegment(seg, *this);
-  if ((dimensionChanged == true) && (FxProperties::_isResizeSupportEnabled == false))
+  if ((dimensionChanged == true) && (FxProperties::_isSupported_SegmentResize == false))
   {
     FxEnv::setBroken();
   }
-  if ((FxEnv::is2D() == false) && (FxProperties::_isRequired2D == true))
+  if ((FxEnv::is2D() == false) && (FxProperties::_isRequired_2D == true))
   {
     FxEnv::setBroken();
   }

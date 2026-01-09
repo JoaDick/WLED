@@ -10417,40 +10417,38 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
   Uses palette for particle color
   by DedeHai (Damian Schneider)
 */
-uint16_t mode_particleStarburst(void) {
-  ParticleSystem1D *PartSys = nullptr;
+void fx_particleStarburst(FxEnv& env) {
+  Segment& seg = env.seg();
+  SegEnv& segenv = env.segenv();
 
-  if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 1, 200, 0, true)) // init
-      return mode_static(); // allocation failed or is single pixel
+  auto initPS = [](ParticleSystem1D *PartSys){
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
     PartSys->sources[0].source.ttl = 1; // set initial stanby time
     PartSys->sources[0].sat = 0; // emitted particles start out white
-  }
-  else
-    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
-  if (PartSys == nullptr)
-    return mode_static(); // something went wrong, no data!
+  };
+
+  ParticleSystem1D *PartSys;
+  if (!segenv.getParticleSystem(initPS, PartSys, 1, 200, 0, true)) return;
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
-  PartSys->setGravity(SEGMENT.check1 * 8); // enable gravity
+  PartSys->setMotionBlur(seg.custom2); // anable motion blur
+  PartSys->setGravity(seg.check1 * 8); // enable gravity
 
   if (PartSys->sources[0].source.ttl-- == 0) { // stanby time elapsed TODO: make it a timer?
-    uint32_t explosionsize = 4 + hw_random16(SEGMENT.intensity >> 2);
+    uint32_t explosionsize = 4 + hw_random16(seg.intensity >> 2);
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].var = 10 + (explosionsize << 1);
     PartSys->sources[0].minLife = 250;
     PartSys->sources[0].maxLife = 300;
     PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
-    PartSys->sources[0].source.ttl = 10 + hw_random16(255 - SEGMENT.speed);
-    PartSys->sources[0].size = SEGMENT.custom1; // Fragment size
-    PartSys->setParticleSize(SEGMENT.custom1); // enable advanced size rendering
-    PartSys->sources[0].sourceFlags.collide = SEGMENT.check3;
+    PartSys->sources[0].source.ttl = 10 + hw_random16(255 - seg.speed);
+    PartSys->sources[0].size = seg.custom1; // Fragment size
+    PartSys->setParticleSize(seg.custom1); // enable advanced size rendering
+    PartSys->sources[0].sourceFlags.collide = seg.check3;
     for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
-      if (SEGMENT.check2)
+      if (seg.check2)
         PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
       PartSys->sprayEmit(PartSys->sources[0]); //emit a particle
     }
@@ -10460,15 +10458,14 @@ uint16_t mode_particleStarburst(void) {
     if (PartSys->advPartProps[i].size)
       PartSys->advPartProps[i].size--;
     if (PartSys->advPartProps[i].sat < 251)
-      PartSys->advPartProps[i].sat += 1 + (SEGMENT.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+      PartSys->advPartProps[i].sat += 1 + (seg.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
   }
 
-  if (SEGMENT.call % 5 == 0) {
+  if (seg.call % 5 == 0) {
     PartSys->applyFriction(1); //slow down particles
   }
 
   PartSys->update(); // update and render
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_PS_STARBURST[] PROGMEM = "1 PS Starburst FX@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
 
@@ -11217,6 +11214,67 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
 static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "1 Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
+/*
+  Particle Fireworks Starburst replacement (smoother rendering, more settings)
+  Uses palette for particle color
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particleStarburst(void) {
+  ParticleSystem1D *PartSys = nullptr;
+
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 200, 0, true)) // init
+      return mode_static(); // allocation failed or is single pixel
+    PartSys->setKillOutOfBounds(true);
+    PartSys->enableParticleCollisions(true, 200);
+    PartSys->sources[0].source.ttl = 1; // set initial stanby time
+    PartSys->sources[0].sat = 0; // emitted particles start out white
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
+  PartSys->setGravity(SEGMENT.check1 * 8); // enable gravity
+
+  if (PartSys->sources[0].source.ttl-- == 0) { // stanby time elapsed TODO: make it a timer?
+    uint32_t explosionsize = 4 + hw_random16(SEGMENT.intensity >> 2);
+    PartSys->sources[0].source.hue = hw_random16();
+    PartSys->sources[0].var = 10 + (explosionsize << 1);
+    PartSys->sources[0].minLife = 250;
+    PartSys->sources[0].maxLife = 300;
+    PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
+    PartSys->sources[0].source.ttl = 10 + hw_random16(255 - SEGMENT.speed);
+    PartSys->sources[0].size = SEGMENT.custom1; // Fragment size
+    PartSys->setParticleSize(SEGMENT.custom1); // enable advanced size rendering
+    PartSys->sources[0].sourceFlags.collide = SEGMENT.check3;
+    for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
+      if (SEGMENT.check2)
+        PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
+      PartSys->sprayEmit(PartSys->sources[0]); //emit a particle
+    }
+  }
+  //shrink all particles
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (PartSys->advPartProps[i].size)
+      PartSys->advPartProps[i].size--;
+    if (PartSys->advPartProps[i].sat < 251)
+      PartSys->advPartProps[i].sat += 1 + (SEGMENT.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+  }
+
+  if (SEGMENT.call % 5 == 0) {
+    PartSys->applyFriction(1); //slow down particles
+  }
+
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_STARBURST_org[] PROGMEM = "1 PS Starburst org@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -11486,7 +11544,7 @@ addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLA
 addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
 addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
 addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
-// addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
+addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
 addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
@@ -11501,10 +11559,10 @@ addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
 addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
 addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
 addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
+addEffectFunction<fx_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
 addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
 
 addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);
 
 addModeFunction<mode_starburst>(*this, 255, _data_FX_MODE_STARBURST);
-addModeFunction<mode_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
 }

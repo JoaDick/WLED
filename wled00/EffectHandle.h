@@ -92,7 +92,7 @@ public:
   void moveEffectTo(EffectHandle &dest) noexcept { dest.moveEffectFrom(*this); }
 
   /** Perform adjustments after raw copying the Segment via \c memcpy()
-   * Call this method directly after \c memcpy() inside the copy operations of the Segment.
+   * Call this method after \c memcpy() inside the copy operations of the Segment.
    * It must be called on the new (copied) EffectHandle instance, with the new Segment as parameter.
    * @param newSeg The new (copied) Segment.
    * @note The original instance of the effect class is transferred to \a newSeg - and a clone
@@ -103,7 +103,7 @@ public:
   void adjustAfterRawCopy(Segment &newSeg);
 
   /** Perform adjustments after raw moving the Segment via \c memcpy()
-   * Call this method directly after \c memcpy() inside the move operations of the Segment.
+   * Call this method after \c memcpy() inside the move operations of the Segment.
    * It must be called on the moved-to EffectHandle instance, with the moved-to Segment as parameter.
    * @param newSeg The moved-to Segment.
    */

@@ -16,6 +16,8 @@
 //--------------------------------------------------------------------------------------------------
 class EffectBase;
 class FxConfig; // not implemented yet
+class ParticleSystem1D;
+class ParticleSystem2D;
 class SegEnv;
 
 /// Non-owning pointer to an effect.
@@ -120,7 +122,7 @@ protected:
    */
   uint16_t showEffect(uint32_t now);
 
-  /** Call this method when the segment or any of its setting has changed.
+  /** Call this method when the segment or its setting has changed.
    * @param seg The changed segment wo work on from now.
    * @return \c true When the segment's dimension has changed.
    */
@@ -169,10 +171,10 @@ public:
   FxProperties &operator=(FxProperties &&) = delete;
 
   /// Indicate that the effect can handle cnahges of the segment on the fly without being recreated.
-  void setResizeSupportEnabled() { _isResizeSupportEnabled = true; }
+  void setSupported_SegmentResize() { _isSupported_SegmentResize = true; }
 
   /// Indicate that the effect can \a only be used with a 2D setup.
-  void setRequires2D() { _isRequired2D = true; }
+  void setRequired_2D() { _isRequired_2D = true; }
 
 protected:
   FxProperties(const FxProperties &) = default;
@@ -180,8 +182,8 @@ protected:
   ~FxProperties() = default;
 
 protected:
-  bool _isResizeSupportEnabled = false;
-  bool _isRequired2D = false;
+  bool _isSupported_SegmentResize = false;
+  bool _isRequired_2D = false;
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -373,7 +375,6 @@ public:
         return false;
       }
 
-      // dataPtr = new (_data) FX_DATA;
       dataPtr = new (_data) FX_DATA[arrayLength];
       if (dataPtr != _data)
       {
@@ -408,6 +409,85 @@ public:
   /// Reset (and deallocate) all data - just as if it were the very first frame.
   void reset();
 
+  /** EXPERIMENTAL
+   * ...
+   * The effect is marked as broken when the allocation failed, so its rendering function won't be
+   * called anymore.
+   * @param PartSys Pointer to ParticleSystem (which will be redirected).
+   * @retval \c true Success; \a PartSys is now pointing to a valid ParticleSystem1D instance.
+   * @retval \c false Allocation failed; do \e not use \a PartSys
+   * @note ParticleSystem allocates memory via Segment, thus completely independent from \c allocateData()
+   */
+  bool getParticleSystem(ParticleSystem1D *&PartSys,
+                         const uint32_t requestedsources,
+                         const uint8_t fractionofparticles = 255,
+                         const uint32_t additionalbytes = 0,
+                         const bool advanced = false)
+
+  {
+    return getParticleSystem([](ParticleSystem1D *) {}, PartSys, requestedsources, fractionofparticles, additionalbytes, advanced);
+  }
+
+  template <typename PS_INIT_FCT>
+  bool getParticleSystem(PS_INIT_FCT initFct,
+                         ParticleSystem1D *&PartSys,
+                         const uint32_t requestedsources,
+                         const uint8_t fractionofparticles = 255,
+                         const uint32_t additionalbytes = 0,
+                         const bool advanced = false)
+  {
+    PartSys = _partSys_1D;
+    if (!PartSys)
+    {
+      PartSys = initPS_1D(requestedsources, fractionofparticles, additionalbytes, advanced);
+      if (!PartSys)
+      {
+        return false;
+      }
+      initFct(PartSys);
+    }
+    return true;
+  }
+
+  /** EXPERIMENTAL
+   * ...
+   * The effect is marked as broken when the allocation failed, so its rendering function won't be
+   * called anymore.
+   * @param PartSys Pointer to ParticleSystem (which will be redirected).
+   * @retval \c true Success; \a PartSys is now pointing to a valid ParticleSystem1D instance.
+   * @retval \c false Allocation failed; do \e not use \a PartSys
+   * @note ParticleSystem allocates memory via Segment, thus completely independent from \c allocateData()
+   */
+  bool getParticleSystem(ParticleSystem2D *&PartSys,
+                         const uint32_t requestedsources,
+                         const uint32_t additionalbytes = 0,
+                         const bool advanced = false,
+                         const bool sizecontrol = false)
+  {
+    return getParticleSystem([](ParticleSystem2D *) {}, PartSys, requestedsources, additionalbytes, advanced, sizecontrol);
+  }
+
+  template <typename PS_INIT_FCT>
+  bool getParticleSystem(PS_INIT_FCT initFct,
+                         ParticleSystem2D *&PartSys,
+                         const uint32_t requestedsources,
+                         const uint32_t additionalbytes = 0,
+                         const bool advanced = false,
+                         const bool sizecontrol = false)
+  {
+    PartSys = _partSys_2D;
+    if (!PartSys)
+    {
+      PartSys = initPS_2D(requestedsources, additionalbytes, advanced, sizecontrol);
+      if (!PartSys)
+      {
+        return false;
+      }
+      initFct(PartSys);
+    }
+    return true;
+  }
+
 protected:
   SegEnv() = default;
   SegEnv(const SegEnv &other);
@@ -416,16 +496,34 @@ protected:
   /// Call this method \e after every rendered frame.
   void next() { ++_call; }
 
+  /** Call this method when the segment has changed.
+   * @param seg The changed segment wo work on from now.
+   */
+  void updateSegment(Segment &seg);
+
   /** This method is called when an allocation has failed.
    * Child class shall mark the effect as broken.
    */
   virtual void onSegEnvAllocFailed() = 0;
 
 private:
+  ParticleSystem1D *initPS_1D(const uint32_t requestedsources,
+                              const uint8_t fractionofparticles,
+                              const uint32_t additionalbytes,
+                              const bool advanced);
+
+  ParticleSystem2D *initPS_2D(const uint32_t requestedsources,
+                              const uint32_t additionalbytes,
+                              const bool advanced,
+                              const bool sizecontrol);
+
+private:
   static size_t _allDataSize;
+  uint32_t _call = 0;
   size_t _dataSize = 0;
   void *_data = nullptr;
-  uint32_t _call = 0;
+  ParticleSystem1D *_partSys_1D = nullptr;
+  ParticleSystem2D *_partSys_2D = nullptr;
 };
 
 //--------------------------------------------------------------------------------------------------

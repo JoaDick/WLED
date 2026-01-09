@@ -59,13 +59,15 @@ uint8_t  Segment::_clipStopY = 1;
 Segment::Segment(const Segment &orig) : _effectHandle(*this) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
-  _effectHandle.adjustAfterRawCopy(*this);
   _t   = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
   pixels = nullptr;
-  if (!stop) return;  // nothing to do if segment is inactive/invalid
+  if (!stop) {
+    _effectHandle.adjustAfterRawCopy(*this);
+    return;  // nothing to do if segment is inactive/invalid
+  }
   if (orig.pixels) {
     // allocate pixel buffer: prefer IRAM/PSRAM
     pixels = static_cast<uint32_t*>(allocate_buffer(orig.length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
@@ -79,18 +81,19 @@ Segment::Segment(const Segment &orig) : _effectHandle(*this) {
       stop = 0; // mark segment as inactive/invalid
     }
   } else stop = 0; // mark segment as inactive/invalid
+  _effectHandle.adjustAfterRawCopy(*this);
 }
 
 // move constructor
 Segment::Segment(Segment &&orig) noexcept : _effectHandle(*this) {
   //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
-  _effectHandle.adjustAfterRawMove(*this);
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
   orig.pixels = nullptr;
+  _effectHandle.adjustAfterRawMove(*this);
 }
 
 // copy assignment
@@ -104,12 +107,14 @@ Segment& Segment::operator= (const Segment &orig) {
     p_free(pixels);
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
-    _effectHandle.adjustAfterRawCopy(*this);
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
     pixels = nullptr;
-    if (!stop) return *this;  // nothing to do if segment is inactive/invalid
+    if (!stop) {
+      _effectHandle.adjustAfterRawCopy(*this); 
+      return *this;  // nothing to do if segment is inactive/invalid
+    }
     // copy source data
     if (orig.pixels) {
       // allocate pixel buffer: prefer IRAM/PSRAM
@@ -125,6 +130,7 @@ Segment& Segment::operator= (const Segment &orig) {
       }
     } else stop = 0; // mark segment as inactive/invalid
   }
+  _effectHandle.adjustAfterRawCopy(*this);
   return *this;
 }
 
@@ -138,12 +144,12 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     p_free(pixels);   // free old pixel buffer
     // move source data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
-    _effectHandle.adjustAfterRawMove(*this);
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
     orig.pixels = nullptr;
     orig._t = nullptr; // old segment cannot be in transition
+    _effectHandle.adjustAfterRawMove(*this);
   }
   return *this;
 }

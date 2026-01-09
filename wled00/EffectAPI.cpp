@@ -5,6 +5,7 @@
 
 #include "wled.h"
 #include "EffectAPI.h"
+#include "FXparticleSystem.h"
 
 //--------------------------------------------------------------------------------------------------
 // class FxEnv
@@ -111,12 +112,30 @@ void EffectBase::show(FxEnv &env)
 size_t SegEnv::_allDataSize = 0;
 
 SegEnv::SegEnv(const SegEnv &other)
-    : _call{other._call}, step{other.step}, aux0{other.aux0}, aux1{other.aux1}
+    : _call{other._call}, step{other.step}, aux0{other.aux0}, aux1{other.aux1},
+      _partSys_1D{other._partSys_1D}, _partSys_2D{other._partSys_2D}
 {
-  if (other._dataSize)
+  if (this != &other)
   {
-    allocateData(other._dataSize);
-    memcpy(_data, other._data, _dataSize);
+    if (other._dataSize)
+    {
+      if (allocateData(other._dataSize))
+      {
+        memcpy(_data, other._data, _dataSize);
+      }
+    }
+  }
+}
+
+void SegEnv::updateSegment(Segment &seg)
+{
+  if (_partSys_1D)
+  {
+    _partSys_1D = reinterpret_cast<ParticleSystem1D *>(seg.data);
+  }
+  if (_partSys_2D)
+  {
+    _partSys_2D = reinterpret_cast<ParticleSystem2D *>(seg.data);
   }
 }
 
@@ -179,6 +198,32 @@ void SegEnv::reset()
   step = 0;
   aux0 = 0;
   aux1 = 0;
+}
+
+ParticleSystem1D *SegEnv::initPS_1D(const uint32_t requestedsources,
+                                    const uint8_t fractionofparticles,
+                                    const uint32_t additionalbytes,
+                                    const bool advanced)
+{
+  if (!initParticleSystem1D(_partSys_1D, requestedsources, fractionofparticles, additionalbytes, advanced) || !_partSys_1D)
+  {
+    onSegEnvAllocFailed();
+    return nullptr;
+  }
+  return _partSys_1D;
+}
+
+ParticleSystem2D *SegEnv::initPS_2D(const uint32_t requestedsources,
+                                    const uint32_t additionalbytes,
+                                    const bool advanced,
+                                    const bool sizecontrol)
+{
+  if (!initParticleSystem2D(_partSys_2D, requestedsources, additionalbytes, advanced, sizecontrol) || !_partSys_2D)
+  {
+    onSegEnvAllocFailed();
+    return nullptr;
+  }
+  return _partSys_2D;
 }
 
 //--------------------------------------------------------------------------------------------------
