@@ -15,13 +15,141 @@
 
 //--------------------------------------------------------------------------------------------------
 class EffectBase;
-class FxConfig; // not implemented yet
 class ParticleSystem1D;
 class ParticleSystem2D;
 class SegEnv;
-
-/// Non-owning pointer to an effect.
 using RawEffectPtr = EffectBase *;
+
+//--------------------------------------------------------------------------------------------------
+
+/** Interface for retrieving the effect's user configuration settings (from the UI).
+ * @see https://kno.wled.ge/interfaces/json-api/#effect-metadata
+ */
+class FxConfig
+{
+public:
+  // no general copy & move - this class is intended to be passed as reference to other functions
+  FxConfig(FxConfig &&) = delete;
+  FxConfig &operator=(const FxConfig &) = delete;
+  FxConfig &operator=(FxConfig &&) = delete;
+
+  // ----- Slider -----
+
+  /** Get current setting of the 'Speed" slider (with Clock icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.speed
+   */
+  uint8_t speed() const { return _seg->speed; }
+
+  /** Get current setting of the 'Intensity" slider (with Fire icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.intensity
+   */
+  uint8_t intensity() const { return _seg->intensity; }
+
+  /** Get current setting of custom slider 1 (with Star icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.custom1
+   */
+  uint8_t custom1() const { return _seg->custom1; }
+
+  /** Get current setting of custom slider 2 (with Gear icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.custom2
+   */
+  uint8_t custom2() const { return _seg->custom2; }
+
+  /** Get current setting of custom slider 3 (with Eye icon; reduced range 0-31).
+   * @note Effect implementations shall use this instead of \c SEGMENT.custom3
+   */
+  uint8_t custom3_reduced() const { return _seg->custom3; }
+
+  /// Current setting of custom slider 3 (with Eye icon; full range 0-255).
+  uint8_t custom3() const { return custom3_reduced() << 3; }
+
+  // ----- Checkbox -----
+
+  /** Get current setting of checkbox 1 (with Palette icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.check1
+   */
+  bool check1() const { return _seg->check1; }
+
+  /** Get current setting of checkbox 2 (with Overlay icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.check2
+   */
+  bool check2() const { return _seg->check2; }
+
+  /** Get current setting of checkbox 3 (with Heart icon).
+   * @note Effect implementations shall use this instead of \c SEGMENT.check3
+   */
+  bool check3() const { return _seg->check3; }
+
+  // ----- Color -----
+
+  /** Get currently selected effect/foreground color.
+   * @note Effect implementations shall use this instead of \c SEGCOLOR(0)
+   */
+  uint32_t fxColor() const { return color(0); }
+
+  /** Get currently selected background color.
+   * @note Effect implementations shall use this instead of \c SEGCOLOR(1)
+   */
+  uint32_t bgColor() const { return color(1); }
+
+  /** Get currently selected extra color.
+   * @note Effect implementations shall use this instead of \c SEGCOLOR(2)
+   */
+  uint32_t auxColor() const { return color(2); }
+
+  /** Get the desired color \a n
+   * 0=fg / 1=bg / 2=aux / other=black
+   * @note Effect implementations shall use this instead of \c SEGCOLOR(n)
+   */
+  uint32_t color(unsigned n) const { return _seg->getCurrentColor(n); }
+
+  /** Get a "rotating" color, based on the given \a pos
+   * When the \e Default palette (0) is selected: \n
+   * Rotates the color in HSV space, where \a pos is H (0 = 0deg, 256 = 360deg) with S and V fixed
+   * to 255. The colors are a transition red --> green --> blue --> back to red. \n
+   * When another palette is selected: \n
+   * Returns a color from that palette, where \a pos represents the palette index.
+   * @note Effect implementations shall use this instead of \c SEGMENT.color_wheel()
+   */
+  uint32_t color_wheel(uint8_t pos) const { return _seg->color_wheel(pos); }
+
+  // ----- Palette -----
+
+  /** Get number of currently selected color palette.
+   * @note Effect implementations shall use this instead of \c SEGMENT.palette
+   */
+  uint8_t paletteNr() const { return _seg->palette; }
+
+  /** Get currently selected color palette.
+   * @note Effect implementations shall use this instead of \c SEGPALETTE
+   */
+  const CRGBPalette16 &palette() const { return Segment::getCurrentPalette(); }
+
+  /** Get a single color from the currently selected color palette.
+   * @param i  Palette index; will wrap around automatically. See \a mapping for its range.
+   * @param mapping  \c false = the range of \a i for a full palette cycle is 0 - 255
+   *                 \c true  = the range of \a i for a full palette cycle is 0 - \c FxEnv::seglen()
+   * @param moving  Color palettes can wrap back to the start smoothly.
+   *                Set to \c true if you want that wrapping, e.g. when the effect uses a "moving" palette.
+   *                Set to \c false to get a hard edge from end to start of the palette.
+   * @param mcol  Only when the \e Default palette (0) is selected, return the standard color for 0 (fg), 1 (bg) or 2 (aux) instead.
+   *              Ignored if this value is >2 or when another palette is selected.
+   * @param pbri  Value to scale down the brightness of the returned color by. Default is 255, meaning full brightness.
+   * @note Effect implementations shall use this instead of \c SEGMENT.color_from_palette()
+   */
+  uint32_t color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri = 255) const
+  {
+    return _seg->color_from_palette(i, mapping, moving, mcol, pbri);
+  }
+
+private:
+  friend class FxEnv;
+  FxConfig(const FxConfig &) = default;
+  explicit FxConfig(const Segment &seg) : _seg(&seg) {}
+  const Segment *_seg;
+};
+
+//--------------------------------------------------------------------------------------------------
 
 /** Runtime environment for rendering the effects.
  * Concrete effect implementations obtain all the necessary runtime information and interfaces for
@@ -73,20 +201,20 @@ public:
    */
   bool is2D() const { return _is2D; }
 
-  /// Get user configuration data (from the UI).
-  FxConfig &config(); // not implemented yet
+  /// Get user configuration data (settings from the UI).
+  FxConfig &ui() { return _config; }
 
   /** Fallback rendering function.
    * Can be called as fallback by an effect when it cannot render its own stuff, e.g. when something
    * went terribly wrong.
-   * @note Calling this function implies \c setBroken(), meaning that the concrete effect's
-   * rendering function will no more be called!
+   * @note Calling this function implies \c setBroken() which means that the effect's rendering
+   * function will no more be called!
    */
   void showFallbackEffect();
 
   /** Mark the effect as non-functional.
    * Can be called when something went terribly wrong, and the effect is no more working.
-   * @note The concrete effect's rendering function will no more be called after this!
+   * @note The effect's rendering function will no more be called after this!
    */
   void setBroken() { _effect = nullptr; }
 
@@ -101,7 +229,8 @@ public:
   void setFrametime(uint16_t ms) { _frametime = ms; }
 
   /** Returns \c true only for the during the very first frame.
-   * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor.
+   * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor
+   * of your effect class.
    */
   bool isFistFrame();
 
@@ -113,7 +242,7 @@ public:
 
 protected:
   FxEnv(const FxEnv &) = default;
-  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _now{now} { updateSegment(seg, segenv); }
+  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _config{seg}, _now{now} { updateSegment(seg, segenv); }
   ~FxEnv() = default;
 
   /** Render the effect's pixel magic on the segment.
@@ -137,6 +266,7 @@ private:
   void updateTime(uint32_t now);
 
 private:
+  FxConfig _config;
   RawEffectPtr _effect = nullptr;
   Segment *_seg = nullptr;
   SegEnv *_segenv = nullptr;
@@ -170,20 +300,45 @@ public:
   FxProperties &operator=(const FxProperties &) = delete;
   FxProperties &operator=(FxProperties &&) = delete;
 
-  /// Indicate that the effect can handle cnahges of the segment on the fly without being recreated.
-  void setSupported_SegmentResize() { _isSupported_SegmentResize = true; }
+  /** Indicate that the effect can handle changes of the segment's dimensions on the fly without
+   * having to be recreated.
+   */
+  void setSupported_segmentResize() { _isSupported_segmentResize = true; }
 
-  /// Indicate that the effect can \a only be used with a 2D setup.
-  void setRequired_2D() { _isRequired_2D = true; }
+  /// Validate the minimum length of the segment.
+  bool validate_minSeglen(uint16_t minSeglen)
+  {
+    _required_minSeglen = minSeglen;
+    return validateOrSetBroken(env().seglen() >= minSeglen);
+  }
+
+  /// Validate that the segment is a 2D setup.
+  bool validate_is2D()
+  {
+    _required_is2D = true;
+    return validateOrSetBroken(env().is2D() == true);
+  }
 
 protected:
   FxProperties(const FxProperties &) = default;
   FxProperties() = default;
   ~FxProperties() = default;
+  virtual FxEnv &getFxEnv() = 0;
+
+private:
+  FxEnv &env() { return getFxEnv(); }
+
+  bool validateOrSetBroken(bool checkResult)
+  {
+    if (checkResult == false)
+      getFxEnv().setBroken();
+    return checkResult;
+  }
 
 protected:
-  bool _isSupported_SegmentResize = false;
-  bool _isRequired_2D = false;
+  bool _isSupported_segmentResize = false;
+  uint16_t _required_minSeglen = 0;
+  bool _required_is2D = false;
 };
 
 //--------------------------------------------------------------------------------------------------

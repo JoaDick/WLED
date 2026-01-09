@@ -2392,9 +2392,10 @@ static const char _data_FX_MODE_COLORTWINKLE[] PROGMEM = "Colortwinkles@Fade spe
 
 //Calm effect, like a lake at night
 void fx_lake(FxEnv& env) {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
 
-  unsigned sp = seg.speed/10;
+  unsigned sp = ui.speed()/10;
   int wave1 = beatsin8_t(sp +2, -64,64);
   int wave2 = beatsin8_t(sp +1, -64,64);
   int wave3 = beatsin8_t(sp +2,   0,80);
@@ -2403,7 +2404,7 @@ void fx_lake(FxEnv& env) {
   {
     int index = cos8_t((i*15)+ wave1)/2 + cubicwave8((i*23)+ wave2)/2;
     uint8_t lum = (index > wave3) ? index - wave3 : 0;
-    seg.setPixelColor(i, seg.color_from_palette(index, false, false, 0, lum));
+    seg.setPixelColor(i, ui.color_from_palette(index, false, false, 0, lum));
   }
 }
 static const char _data_FX_MODE_LAKE[] PROGMEM = "1 Lake FX@!;Fx;!";
@@ -4100,6 +4101,7 @@ static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;
 / adapted from https://github.com/atuline/FastLED-Demos/blob/master/plasma/plasma.ino
 */
 void fx_plasma(FxEnv& env) {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
@@ -4111,10 +4113,10 @@ void fx_plasma(FxEnv& env) {
   unsigned thatPhase = beatsin8_t(7+segenv.aux0,-64,64);
 
   for (unsigned i = 0; i < env.seglen(); i++) {   // For each of the LED's in the strand, set color &  brightness based on a wave as follows:
-    unsigned colorIndex = cubicwave8((i*(2+ 3*(seg.speed >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
-                              + cos8_t((i*(1+ 2*(seg.speed >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
-    unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (seg.intensity>>1))));
-    seg.setPixelColor(i, seg.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
+    unsigned colorIndex = cubicwave8((i*(2+ 3*(ui.speed() >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
+                              + cos8_t((i*(1+ 2*(ui.speed() >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
+    unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (ui.intensity()>>1))));
+    seg.setPixelColor(i, ui.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
   }
 }
 static const char _data_FX_MODE_PLASMA[] PROGMEM = "1 Plasma FX@Phase,!;!;!";
@@ -4743,17 +4745,18 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
 void fx_blends(FxEnv& env) {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
   const unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
   uint32_t* pixels;
   if (!segenv.getFxDataArray(pixels, pixelLen + 1)) return;
-  uint8_t blendSpeed = map(seg.intensity, 0, UINT8_MAX, 10, 128);
-  unsigned shift = (strip.now * ((seg.speed >> 3) +1)) >> 8;
+  uint8_t blendSpeed = map(ui.intensity(), 0, UINT8_MAX, 10, 128);
+  unsigned shift = (strip.now * ((ui.speed() >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], seg.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    pixels[i] = color_blend(pixels[i], ui.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
     shift += 3;
   }
 
@@ -5006,10 +5009,11 @@ class AuroraWave {
 };
 
 void fx_aurora(FxEnv& env) {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
-  const uint16_t wavecount = map(seg.intensity, 0, 255, 2, W_MAX_COUNT);
+  const uint16_t wavecount = map(ui.intensity(), 0, 255, 2, W_MAX_COUNT);
   if(segenv.aux1 != wavecount) segenv.reset();
   segenv.aux1 = wavecount;
 
@@ -5017,9 +5021,9 @@ void fx_aurora(FxEnv& env) {
   if(!segenv.getFxDataArray(waves, wavecount)) return;
 
   for (int i = 0; i < wavecount; i++) {
-    waves[i].update(env.seglen(), seg.speed);
+    waves[i].update(env.seglen(), ui.speed());
     if (!(waves[i].stillAlive())) {
-      waves[i].init(env.seglen(), seg.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
+      waves[i].init(env.seglen(), ui.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
     }
     waves[i].updateCachedValues();
   }
@@ -7150,6 +7154,7 @@ typedef struct Plasphase {
 } plasphase;
 
 void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
@@ -7167,13 +7172,13 @@ void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
 
   for (unsigned i = 0; i < env.seglen(); i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
     // updated, similar to "plasma" effect - softhack007
-    uint8_t thisbright = cubicwave8(((i*(1 + (3*seg.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
-    thisbright += cos8_t(((i*(97 +(5*seg.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
+    uint8_t thisbright = cubicwave8(((i*(1 + (3*ui.speed()/32)))+plasmoip->thisphase) & 0xFF)/2;
+    thisbright += cos8_t(((i*(97 +(5*ui.speed()/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
 
     uint8_t colorIndex=thisbright;
-    if (volumeSmth * seg.intensity / 64 < thisbright) {thisbright = 0;}
+    if (volumeSmth * ui.intensity() / 64 < thisbright) {thisbright = 0;}
 
-    seg.addPixelColor(i, color_blend(SEGCOLOR(1), seg.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
+    seg.addPixelColor(i, color_blend(SEGCOLOR(1), ui.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
   }
 } // mode_plasmoid()
 static const char _data_FX_MODE_PLASMOID[] PROGMEM = "1 Plasmoid FX@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
@@ -10418,6 +10423,7 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
   by DedeHai (Damian Schneider)
 */
 void fx_particleStarburst(FxEnv& env) {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
@@ -10433,22 +10439,22 @@ void fx_particleStarburst(FxEnv& env) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setMotionBlur(seg.custom2); // anable motion blur
-  PartSys->setGravity(seg.check1 * 8); // enable gravity
+  PartSys->setMotionBlur(ui.custom2()); // anable motion blur
+  PartSys->setGravity(ui.check1() * 8); // enable gravity
 
   if (PartSys->sources[0].source.ttl-- == 0) { // stanby time elapsed TODO: make it a timer?
-    uint32_t explosionsize = 4 + hw_random16(seg.intensity >> 2);
+    uint32_t explosionsize = 4 + hw_random16(ui.intensity() >> 2);
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].var = 10 + (explosionsize << 1);
     PartSys->sources[0].minLife = 250;
     PartSys->sources[0].maxLife = 300;
     PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
-    PartSys->sources[0].source.ttl = 10 + hw_random16(255 - seg.speed);
-    PartSys->sources[0].size = seg.custom1; // Fragment size
-    PartSys->setParticleSize(seg.custom1); // enable advanced size rendering
-    PartSys->sources[0].sourceFlags.collide = seg.check3;
+    PartSys->sources[0].source.ttl = 10 + hw_random16(255 - ui.speed());
+    PartSys->sources[0].size = ui.custom1(); // Fragment size
+    PartSys->setParticleSize(ui.custom1()); // enable advanced size rendering
+    PartSys->sources[0].sourceFlags.collide = ui.check3();
     for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
-      if (seg.check2)
+      if (ui.check2())
         PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
       PartSys->sprayEmit(PartSys->sources[0]); //emit a particle
     }
@@ -10458,10 +10464,10 @@ void fx_particleStarburst(FxEnv& env) {
     if (PartSys->advPartProps[i].size)
       PartSys->advPartProps[i].size--;
     if (PartSys->advPartProps[i].sat < 251)
-      PartSys->advPartProps[i].sat += 1 + (seg.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+      PartSys->advPartProps[i].sat += 1 + (ui.custom3_reduced() >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
   }
 
-  if (seg.call % 5 == 0) {
+  if (segenv.call % 5 == 0) {
     PartSys->applyFriction(1); //slow down particles
   }
 
@@ -10988,6 +10994,7 @@ static const char _data_RESERVED[] PROGMEM = "RSVD";
  */
 void fx_ColorClouds(FxEnv& env)
 {
+  FxConfig& ui = env.ui();
   Segment& seg = env.seg();
   SegEnv& segenv = env.segenv();
 
@@ -11001,22 +11008,22 @@ void fx_ColorClouds(FxEnv& env)
   const uint8_t hueOffset0 = volX0 + hueX0;
 
   // Put more emphasis on the red'ish colors when true (or begin & end of palette).
-  const bool moreRed = seg.check3;
+  const bool moreRed = ui.check3();
 
   // Higher values make the clouds move faster.
-  const uint32_t volSpeed = 1 + seg.speed;
+  const uint32_t volSpeed = 1 + ui.speed();
   
   // Higher values make the color change faster.
-  const uint32_t hueSpeed = 1 + seg.intensity;
+  const uint32_t hueSpeed = 1 + ui.intensity();
   
   // Higher values make more clouds (but smaller ones).
-  const uint32_t volSqueeze = 8 + seg.custom1;
+  const uint32_t volSqueeze = 8 + ui.custom1();
   
   // Higher values make the clouds more colorful.
-  const uint32_t hueSqueeze = seg.custom2;
+  const uint32_t hueSqueeze = ui.custom2();
 
   // Higher values make larger gaps between the clouds.
-  const long volCutoff   = 12500 + seg.custom3 * 900;
+  const long volCutoff   = 12500 + ui.custom3_reduced() * 900;
   const long volSaturate = 52000;
   // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
 
@@ -11040,7 +11047,7 @@ void fx_ColorClouds(FxEnv& env)
     }
 
     uint32_t pixel;
-    if(seg.palette) { pixel = seg.color_from_palette(hue, false, true, 0, vol); }
+    if(ui.paletteNr()) { pixel = ui.color_from_palette(hue, false, true, 0, vol); }
     else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.

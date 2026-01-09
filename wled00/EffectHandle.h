@@ -91,6 +91,9 @@ public:
   /// Transfer this handle's effect instance to \a dest
   void moveEffectTo(EffectHandle &dest) noexcept { dest.moveEffectFrom(*this); }
 
+  /// Swaps this handle's effect instance with the one of \a other
+  void swap(EffectHandle &other) noexcept;
+
   /** Perform adjustments after raw copying the Segment via \c memcpy()
    * Call this method after \c memcpy() inside the copy operations of the Segment.
    * It must be called on the new (copied) EffectHandle instance, with the new Segment as parameter.
@@ -128,5 +131,8 @@ private:
   EffectInitData _fxData;
   EffectAdapterPtr _fxAdapter;
 };
+
+/// Swaps the effect instance of \a lhs and \a rhs
+inline void swap(EffectHandle &lhs, EffectHandle &rhs) noexcept { lhs.swap(rhs); }
 
 //--------------------------------------------------------------------------------------------------

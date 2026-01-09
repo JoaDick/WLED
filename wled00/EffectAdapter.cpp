@@ -12,15 +12,22 @@
 bool EffectController::updateSegment(Segment &seg)
 {
   SegEnv::updateSegment(seg);
+
   const bool dimensionChanged = FxEnv::updateSegment(seg, *this);
-  if ((dimensionChanged == true) && (FxProperties::_isSupported_SegmentResize == false))
+  if ((dimensionChanged == true) && (FxProperties::_isSupported_segmentResize == false))
   {
     FxEnv::setBroken();
   }
-  if ((FxEnv::is2D() == false) && (FxProperties::_isRequired_2D == true))
+
+  if ((FxProperties::_required_minSeglen != 0) && (FxEnv::seglen() < FxProperties::_required_minSeglen))
   {
     FxEnv::setBroken();
   }
+  if ((FxProperties::_required_is2D == true) && (FxEnv::is2D() == false))
+  {
+    FxEnv::setBroken();
+  }
+
   return !FxEnv::isBroken();
 }
 

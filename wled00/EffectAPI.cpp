@@ -53,6 +53,7 @@ bool FxEnv::updateSegment(Segment &seg, SegEnv &segenv)
   _segH = new_segH;
   _is2D = new_is2D;
   _seg = &seg;
+  _config._seg = &seg;
   _segenv = &segenv;
 
   return dimensionChanged;

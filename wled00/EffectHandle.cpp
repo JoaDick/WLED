@@ -45,6 +45,13 @@ void EffectHandle::moveEffectFrom(EffectHandle &src) noexcept
   updateSegment(*_fxData.seg);
 }
 
+void EffectHandle::swap(EffectHandle &other) noexcept
+{
+  std::swap(_fxAdapter, other._fxAdapter);
+  updateSegment(*_fxData.seg);
+  other.updateSegment(*other._fxData.seg);
+}
+
 void EffectHandle::updateSegment(Segment &seg)
 {
   _fxData.seg = &seg;

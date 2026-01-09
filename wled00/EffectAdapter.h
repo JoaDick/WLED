@@ -77,6 +77,8 @@ private:
 
   FxEnv &env() override { return *this; }
 
+  FxEnv &getFxEnv() override { return *this; }
+
   void onSegEnvAllocFailed() override { FxEnv::setBroken(); }
 };
 
