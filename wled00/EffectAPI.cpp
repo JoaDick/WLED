@@ -5,7 +5,10 @@
 
 #include "wled.h"
 #include "EffectAPI.h"
+
+#if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D)) // not both disabled
 #include "FXparticleSystem.h"
+#endif
 
 //--------------------------------------------------------------------------------------------------
 // class FxEnv
@@ -113,8 +116,14 @@ void EffectBase::show(FxEnv &env)
 size_t SegEnv::_allDataSize = 0;
 
 SegEnv::SegEnv(const SegEnv &other)
-    : _call{other._call}, step{other.step}, aux0{other.aux0}, aux1{other.aux1},
-      _partSys_1D{other._partSys_1D}, _partSys_2D{other._partSys_2D}
+    : step{other.step}, aux0{other.aux0}, aux1{other.aux1},
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
+      _partSys_1D{other._partSys_1D},
+#endif
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
+      _partSys_2D{other._partSys_2D},
+#endif
+      _call{other._call}
 {
   if (this != &other)
   {
@@ -130,14 +139,18 @@ SegEnv::SegEnv(const SegEnv &other)
 
 void SegEnv::updateSegment(Segment &seg)
 {
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
   if (_partSys_1D)
   {
     _partSys_1D = reinterpret_cast<ParticleSystem1D *>(seg.data);
   }
+#endif
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
   if (_partSys_2D)
   {
     _partSys_2D = reinterpret_cast<ParticleSystem2D *>(seg.data);
   }
+#endif
 }
 
 bool SegEnv::allocateData(size_t size)
@@ -201,6 +214,7 @@ void SegEnv::reset()
   aux1 = 0;
 }
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
 ParticleSystem1D *SegEnv::initPS_1D(const uint32_t requestedsources,
                                     const uint8_t fractionofparticles,
                                     const uint32_t additionalbytes,
@@ -213,7 +227,9 @@ ParticleSystem1D *SegEnv::initPS_1D(const uint32_t requestedsources,
   }
   return _partSys_1D;
 }
+#endif
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
 ParticleSystem2D *SegEnv::initPS_2D(const uint32_t requestedsources,
                                     const uint32_t additionalbytes,
                                     const bool advanced,
@@ -226,5 +242,6 @@ ParticleSystem2D *SegEnv::initPS_2D(const uint32_t requestedsources,
   }
   return _partSys_2D;
 }
+#endif
 
 //--------------------------------------------------------------------------------------------------

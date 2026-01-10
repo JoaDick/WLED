@@ -14,6 +14,8 @@
 #include "FX.h"
 #include "fcn_declare.h"
 
+#define EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
+
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
   #include "FXparticleSystem.h" // include particle system code only if at least one system is enabled
   #ifdef WLED_DISABLE_PARTICLESYSTEM2D
@@ -10985,6 +10987,10 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 static const char _data_RESERVED[] PROGMEM = "RSVD";
 
 
+#ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
+//////////////////////////////////////////////////////////////////////////////////////////
+// backup of converted effects examples
+
 /** Softly floating colorful clouds.
  * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
  * It was initially intended for rather unobtrusive ambient lights (with very slow speed settings).
@@ -11062,9 +11068,6 @@ void fx_ColorClouds(FxEnv& env)
 }
 static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
-
-//////////////////////////////////////////////////////////////////////////////////////////
-// backup of converted effects examples
 
 /*
  * Blink several LEDs in random colors on, reset, repeat.
@@ -11221,6 +11224,7 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
 static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "1 Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
 /*
   Particle Fireworks Starburst replacement (smoother rendering, more settings)
   Uses palette for particle color
@@ -11280,9 +11284,11 @@ uint16_t mode_particleStarburst(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PS_STARBURST_org[] PROGMEM = "1 PS Starburst org@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
+#endif
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
+#endif
 
 
 
@@ -11337,7 +11343,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
-  addEffect(FX_MODE_TWINKLE, mode_twinkle, _data_FX_MODE_TWINKLE_org);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
@@ -11357,7 +11362,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
-  addEffect(FX_MODE_AURORA, mode_aurora, _data_FX_MODE_AURORA_org);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
@@ -11425,7 +11429,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SINELON, &mode_sinelon, _data_FX_MODE_SINELON);
   addEffect(FX_MODE_SINELON_DUAL, &mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
   addEffect(FX_MODE_SINELON_RAINBOW, &mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
-  addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
   addEffect(FX_MODE_PERCENT, &mode_percent, _data_FX_MODE_PERCENT);
   addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
   addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
@@ -11440,7 +11443,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
   addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
-  addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
@@ -11451,7 +11453,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
   addEffect(FX_MODE_MATRIPIX, &mode_matripix, _data_FX_MODE_MATRIPIX);
   addEffect(FX_MODE_GRAVIMETER, &mode_gravimeter, _data_FX_MODE_GRAVIMETER);
-  addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
   addEffect(FX_MODE_PUDDLES, &mode_puddles, _data_FX_MODE_PUDDLES);
   addEffect(FX_MODE_MIDNOISE, &mode_midnoise, _data_FX_MODE_MIDNOISE);
   addEffect(FX_MODE_NOISEMETER, &mode_noisemeter, _data_FX_MODE_NOISEMETER);
@@ -11551,7 +11552,6 @@ addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLA
 addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
 addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
 addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
-addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
 addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
@@ -11559,17 +11559,31 @@ addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SON
 addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
-// --- class-based effect examples ---
+#ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
+// --- class-based effect examples (originals for comparison) ---
+addEffect(FX_MODE_TWINKLE, mode_twinkle, _data_FX_MODE_TWINKLE_org);
+addEffect(FX_MODE_AURORA, mode_aurora, _data_FX_MODE_AURORA_org);
+addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
+addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
+addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
+addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
+#endif
+#endif
+
+// --- class-based effect examples ---
 addEffectFunction<fx_lake>(*this, 255, _data_FX_MODE_LAKE);
 addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
 addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
 addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
 addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
-addEffectFunction<fx_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
 addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
 
 addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);
 
 addModeFunction<mode_starburst>(*this, 255, _data_FX_MODE_STARBURST);
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
+addEffectFunction<fx_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
+#endif
 }

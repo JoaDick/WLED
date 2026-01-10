@@ -15,10 +15,14 @@
 
 //--------------------------------------------------------------------------------------------------
 class EffectBase;
-class ParticleSystem1D;
-class ParticleSystem2D;
-class SegEnv;
 using RawEffectPtr = EffectBase *;
+class SegEnv;
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
+class ParticleSystem1D;
+#endif
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
+class ParticleSystem2D;
+#endif
 
 //--------------------------------------------------------------------------------------------------
 
@@ -564,6 +568,7 @@ public:
   /// Reset (and deallocate) all data - just as if it were the very first frame.
   void reset();
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
   /** EXPERIMENTAL
    * ...
    * The effect is marked as broken when the allocation failed, so its rendering function won't be
@@ -603,7 +608,9 @@ public:
     }
     return true;
   }
+#endif
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
   /** EXPERIMENTAL
    * ...
    * The effect is marked as broken when the allocation failed, so its rendering function won't be
@@ -642,6 +649,7 @@ public:
     }
     return true;
   }
+#endif
 
 protected:
   SegEnv() = default;
@@ -662,23 +670,31 @@ protected:
   virtual void onSegEnvAllocFailed() = 0;
 
 private:
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
   ParticleSystem1D *initPS_1D(const uint32_t requestedsources,
                               const uint8_t fractionofparticles,
                               const uint32_t additionalbytes,
                               const bool advanced);
+#endif
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
   ParticleSystem2D *initPS_2D(const uint32_t requestedsources,
                               const uint32_t additionalbytes,
                               const bool advanced,
                               const bool sizecontrol);
+#endif
 
 private:
   static size_t _allDataSize;
-  uint32_t _call = 0;
   size_t _dataSize = 0;
   void *_data = nullptr;
+#ifndef WLED_DISABLE_PARTICLESYSTEM1D
   ParticleSystem1D *_partSys_1D = nullptr;
+#endif
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
   ParticleSystem2D *_partSys_2D = nullptr;
+#endif
+  uint32_t _call = 0;
 };
 
 //--------------------------------------------------------------------------------------------------
