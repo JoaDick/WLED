@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "FX.h"
+#include "PxColor.h"
 
 //--------------------------------------------------------------------------------------------------
 class EffectBase;
@@ -89,23 +90,23 @@ public:
   /** Get currently selected effect/foreground color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(0)
    */
-  uint32_t fxColor() const { return color(0); }
+  PxColor fxColor() const { return color(0); }
 
   /** Get currently selected background color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(1)
    */
-  uint32_t bgColor() const { return color(1); }
+  PxColor bgColor() const { return color(1); }
 
   /** Get currently selected extra color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(2)
    */
-  uint32_t auxColor() const { return color(2); }
+  PxColor auxColor() const { return color(2); }
 
   /** Get the desired color \a n
    * 0=fg / 1=bg / 2=aux / other=black
    * @note Effect implementations shall use this instead of \c SEGCOLOR(n)
    */
-  uint32_t color(unsigned n) const { return _seg->getCurrentColor(n); }
+  PxColor color(unsigned n) const { return _seg->getCurrentColor(n); }
 
   // ----- Palette -----
 
@@ -127,7 +128,7 @@ public:
    * - \c LINEARBLEND = Linear interpolation between palette entries, with wrap-around from end to the beginning again.
    * - \c LINEARBLEND_NOWRAP = Linear interpolation between palette entries, but no wrap-around.
    */
-  uint32_t paletteColor(uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND) const
+  PxColor paletteColor(uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND) const
   {
     return ColorFromPaletteWLED(palette(), index, brightness, blendType);
   }
@@ -160,7 +161,7 @@ private:
  * @note Effect implementations may use this as alternative to \c SEGMENT.color_wheel()
  * The difference to that function is that \a vol and \a blendType can be determined by the effect.
  */
-inline uint32_t rainbowColor(const FxConfig &ui, uint8_t hue, uint8_t vol = 255, TBlendType blendType = LINEARBLEND)
+inline PxColor rainbowColor(const FxConfig &ui, uint8_t hue, uint8_t vol = 255, TBlendType blendType = LINEARBLEND)
 {
   if (ui.paletteNr())
     return ui.paletteColor(hue, vol, blendType);
@@ -265,12 +266,12 @@ public:
   /** Just a hint for migtating effects.
    * @note Effect implementations shall use \c color_wheel(env,pos) instead of \c SEGMENT.color_wheel(pos)
    */
-  [[deprecated("Use free function color_wheel(env, pos) instead.")]] uint32_t color_wheel(...) = delete;
+  [[deprecated("Use free function color_wheel(env, pos) instead.")]] PxColor color_wheel(...) = delete;
 
   /** Just a hint for migtating effects.
    * @note Effect implementations shall use \c color_from_palette(env,...) instead of \c SEGMENT.color_from_palette(...)
    */
-  [[deprecated("Use free function color_from_palette(env, ...) instead.")]] uint32_t color_from_palette(...) = delete;
+  [[deprecated("Use free function color_from_palette(env, ...) instead.")]] PxColor color_from_palette(...) = delete;
 
 protected:
   FxEnv(const FxEnv &) = default;

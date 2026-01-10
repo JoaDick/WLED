@@ -67,6 +67,8 @@ struct CRGBW {
     }*/
 
 };
+inline constexpr bool operator==(CRGBW c1, CRGBW c2) { return c1.color32 == c2.color32; }
+inline constexpr bool operator!=(CRGBW c1, CRGBW c2) { return !(c1 == c2); }
 
 struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   union {
@@ -91,6 +93,9 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
     : h((uint16_t)chsv.h << 8), s(chsv.s), v(chsv.v) {}
   inline operator CHSV() const { return CHSV((uint8_t)(h >> 8), s, v); } // typecast to CHSV
 };
+inline constexpr bool operator==(CHSV32 c1, CHSV32 c2) { return c1.raw == c2.raw; }
+inline constexpr bool operator!=(CHSV32 c1, CHSV32 c2) { return !(c1 == c2); }
+
 extern bool gammaCorrectCol;
 // similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
 class NeoGammaWLEDMethod {
@@ -152,4 +157,3 @@ static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
 extern const TProgmemRGBPalette16* const fastledPalettes[];
 extern const uint8_t* const gGradientPalettes[];
 #endif
-
