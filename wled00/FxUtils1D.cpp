@@ -10,24 +10,6 @@
 
 //--------------------------------------------------------------------------------------------------
 
-void PxArray::fillBlock(AIndex firstPos, AIndex lastPos, PxColor color)
-{
-  if (firstPos > lastPos)
-    std::swap(firstPos, lastPos);
-
-  if (firstPos >= size())
-    return;
-  if (lastPos < 0)
-    return;
-
-  if (firstPos < 0)
-    firstPos = 0;
-  if (lastPos >= size())
-    lastPos = size() - 1;
-
-  do_fillBlock(firstPos, lastPos, color);
-}
-
 void PxArray::copyFrom(const PxArray &other)
 {
   if (this != &other)
@@ -42,32 +24,55 @@ void PxArray::copyFrom(const PxArray &other)
 
 void PxArray::do_fillBlock(AIndex firstPos, AIndex lastPos, PxColor color)
 {
+  if (firstPos > lastPos)
+    std::swap(firstPos, lastPos);
+
+  if (firstPos >= size())
+    return;
+  if (lastPos < 0)
+    return;
+
+  if (firstPos < 0)
+    firstPos = 0;
+  if (lastPos >= size())
+    lastPos = size() - 1;
+
   while (firstPos <= lastPos)
     setColor(firstPos++, color);
 }
 
-void PxArray::do_fastScale(uint8_t scale)
+void PxArray::do_fastFade(uint8_t fadeBy)
 {
-  if (scale == 0)
-  {
-    fill(0);
-  }
-  else if (scale == 255)
+  if (fadeBy == 0)
   {
     // nothing to do
+  }
+  else if (fadeBy == 255)
+  {
+    clear();
   }
   else
   {
     for (AIndex pos = 0; pos < _size; ++pos)
-      setColor(pos, getColor(pos).fastScale(scale));
+      setColor(pos, getColor(pos).fastFade(fadeBy));
   }
 }
 
 void PxArray::do_fade(uint8_t fadeBy, bool video)
 {
-  if (fadeBy)
+  if (fadeBy == 0)
+  {
+    // nothing to do
+  }
+  else if (fadeBy == 255)
+  {
+    clear();
+  }
+  else
+  {
     for (AIndex pos = 0; pos < _size; ++pos)
       setColor(pos, getColor(pos).fade(fadeBy, video));
+  }
 }
 
 void PxArray::do_fadeToColorBy(const PxColor color, uint8_t fadeBy)

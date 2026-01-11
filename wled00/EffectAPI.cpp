@@ -63,22 +63,12 @@ uint16_t FxEnv::showEffect(uint32_t now)
 
 bool FxEnv::updateSegment(Segment &seg, SegEnv &segenv)
 {
-#if (1)
-  const uint16_t new_segW = seg.virtualWidth();
-  const uint16_t new_segH = seg.virtualHeight();
-#else
-  const uint16_t new_segW = seg.vWidth();
-  const uint16_t new_segH = seg.vHeight();
-#endif
   const bool new_is2D = seg.is2D();
 
   const bool dimensionChanged = _pxArray.updateSegment(seg) ||
-                                (_segW != new_segW) ||
-                                (_segH != new_segH) ||
+                                _pxMatrix.updateSegment(seg) ||
                                 (_is2D != new_is2D);
 
-  _segW = new_segW;
-  _segH = new_segH;
   _is2D = new_is2D;
   _config._seg = &seg;
   _segenv = &segenv;
@@ -95,21 +85,18 @@ void FxEnv::updateTime(uint32_t now)
 
 void fx_broken(FxEnv &env)
 {
-  Segment &seg = env.seg();
+  PxArray &leds = env.pxArray();
+  leds.clear();
 
-  const uint32_t c1 = seg.getCurrentColor(0);
-  const uint32_t c2 = ~c1 & 0x00FFFFFF;
-  const uint16_t p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
-  const uint16_t p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
+  const auto p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
+  const auto p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
 
-  seg.fill(0);
-  auto tmp = p1;
-  while (tmp < p2)
-    seg.setPixelColor(tmp++, c1);
-  while (tmp > p2)
-    seg.setPixelColor(tmp--, c1);
-  seg.setPixelColor(p1, c2);
-  seg.setPixelColor(p2, c2);
+  const PxColor c1 = env.ui().fxColor();
+  line_abs(leds, p1, p2, c1);
+
+  const PxColor c2 = ~c1.raw & 0x00FFFFFF;
+  leds[p1] = c2;
+  leds[p2] = c2;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -119,7 +106,7 @@ EffectBase::EffectBase(FxSetup &fxs)
 {
   FxEnv &env = fxs.env();
   Segment &seg = env.seg();
-  seg.fill(0);
+  seg.clear();
 }
 
 void EffectBase::show(FxEnv &env)

@@ -201,7 +201,7 @@ public:
   /** Get the segment on which the effect shall be rendered.
    * @note Effect implementations shall use this instead of \c SEGMENT
    */
-  Segment &seg() { return _pxArray.getSegment(); }
+  Segment &seg() { return _pxArray.seg(); }
 
   /** Get the length of the segment.
    * @note Effect implementations shall use this instead of \c SEGLEN
@@ -211,12 +211,12 @@ public:
   /** Get the width of the segment.
    * @note Effect implementations shall use this instead of \c SEG_W
    */
-  uint16_t segW() const { return _segW; }
+  uint16_t segW() const { return _pxMatrix.sizeX(); }
 
   /** Get the height of the segment.
    * @note Effect implementations shall use this instead of \c SEG_H
    */
-  uint16_t segH() const { return _segH; }
+  uint16_t segH() const { return _pxMatrix.sizeY(); }
 
   /** Check if the segment is configured as a 2D setup.
    * @note Effect implementations shall use this instead of \c SEGMENT.is2D()
@@ -227,7 +227,10 @@ public:
   FxConfig &ui() { return _config; }
 
   /// Get the 1D canvas for rendering the pixel magic.
-  PxArray &pxArray() { return _pxArray; }
+  SegmentPxArray &pxArray() { return _pxArray; }
+
+  /// Get the 2D canvas for rendering the pixel magic.
+  SegmentPxMatrix &pxMatrix() { return _pxMatrix; }
 
   /** Fallback rendering function.
    * Can be called as fallback by an effect when it cannot render its own stuff, e.g. when something
@@ -279,7 +282,8 @@ public:
 
 protected:
   FxEnv(const FxEnv &) = default;
-  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _pxArray{seg}, _config{seg}, _now{now} { updateSegment(seg, segenv); }
+  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now)
+      : _pxArray{seg}, _pxMatrix{seg}, _config{seg}, _now{now} { updateSegment(seg, segenv); }
   ~FxEnv() = default;
 
   /** Render the effect's pixel magic on the segment.
@@ -305,13 +309,12 @@ private:
 private:
   FxConfig _config;
   SegmentPxArray _pxArray;
+  SegmentPxMatrix _pxMatrix;
   RawEffectPtr _effect = nullptr;
   SegEnv *_segenv = nullptr;
   uint32_t _now = 0;
   uint32_t _age = 0;
   uint32_t _deltaT = 0;
-  uint16_t _segW = 0;
-  uint16_t _segH = 0;
   uint16_t _frametime = 0;
   bool _is2D = false;
 };

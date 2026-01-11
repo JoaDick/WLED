@@ -11001,7 +11001,7 @@ static const char _data_RESERVED[] PROGMEM = "RSVD";
 void fx_ColorClouds(FxEnv& env)
 {
   FxConfig& ui = env.ui();
-  Segment& seg = env.seg();
+  PxArray& leds = env.pxArray();
   SegEnv& segenv = env.segenv();
 
   // Set random start points for clouds and color.
@@ -11033,12 +11033,12 @@ void fx_ColorClouds(FxEnv& env)
   const long volSaturate = 52000;
   // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
 
-  const uint32_t now = strip.now;
+  const uint32_t now = env.now();
   const uint32_t volT = now * volSpeed / 8;
   const uint32_t hueT = now * hueSpeed / 8;
   const uint8_t hueOffset = beat88(64) >> 8;
 
-  for (int i = 0; i < env.seglen(); i++) {
+  for (int i = 0; i < leds.size(); i++) {
     const uint32_t volX = i * volSqueeze * 64;
     long vol = perlin16(volX0 + volX, volT);
     vol = map(vol, volCutoff, volSaturate, 0, 255);
@@ -11052,19 +11052,56 @@ void fx_ColorClouds(FxEnv& env)
       hue = cos8_t(128 + hue / 2);
     }
 
-    uint32_t pixel = rainbowColor(ui, hue, vol);
+    PxColor color = rainbowColor(ui, hue, vol);
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
     // Unfortunately this doesn't always work properly when gamma correction for color is enabled.
     // So, when using this effect standalone, also try it without color gamma correction.
-    if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
-      pixel = 0;
+    if (int(color.r()) + color.g() + color.b() <= 2) {
+      color.clear();
     }
 
-    seg.setPixelColor(i, pixel);
+    leds.setColor(i, color);
   }
 }
 static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+
+
+void fx_WU_Demo(FxEnv& env)
+{
+  auto& ui = env.ui();
+  auto& segenv = env.segenv();
+  auto& matrix = env.pxMatrix();
+
+  // Set random start.
+  if(env.isFistFrame()) {
+    segenv.aux0 = hw_random16();
+    segenv.aux1 = hw_random16();
+  }
+  const uint32_t x_0 = segenv.aux0;
+  const uint32_t y_0 = segenv.aux1;
+
+  const uint32_t x_speed = 1 + ui.speed();
+  const uint32_t y_speed = 1 + ui.intensity();
+
+  const uint32_t now = env.now();
+  const uint32_t x_t = now * x_speed * 2;
+  const uint32_t y_t = now * y_speed * 2;
+
+  const int32_t x_raw = perlin16(x_0, x_t);
+  const int32_t y_raw = perlin16(y_0, y_t);
+
+  const auto x = 0.5f + NIndex(x_raw - 0x8000) / 0x7FFF; // target range: 0.0 ... 1.0
+  const auto y = 0.5f + NIndex(y_raw - 0x8000) / 0x7FFF; // target range: 0.0 ... 1.0
+  const auto pos = NPoint{x, y};
+
+  matrix.clear();
+  if(ui.check2())
+    matrix.setColor_N(pos, ui.fxColor());
+  else
+    wu_pixel_N(matrix, pos, ui.fxColor());
+}
+static const char _data_FX_MODE_WU_PIXEL_DEMO[] PROGMEM = "1 WU Demo FX@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
 
 
 /*
@@ -11565,6 +11602,7 @@ addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
 addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
 addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
+addEffectFunction<fx_WU_Demo>(*this, 255, _data_FX_MODE_WU_PIXEL_DEMO);
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 #endif

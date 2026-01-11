@@ -20,48 +20,75 @@
  */
 struct PxColor
 {
-  /// Make a white-only PxColor.
-  static constexpr PxColor White(uint8_t w) { return PxColor{static_cast<uint32_t>(w) << 24}; }
+  /// The pixel's raw 32 bit color value (white - red - green - blue).
+  uint32_t raw;
+
+  // ----- Initialization -----
+
+  /// Make a black PxColor.
   static constexpr PxColor Black() { return PxColor{0}; }
 
   /// Default constructor - leaves the color uninitialized!
   PxColor() = default;
 
   /// Create from raw \c uint32_t (WW-RR-GG-BB).
-  constexpr PxColor(uint32_t c) : wrgb{c} {}
+  constexpr PxColor(uint32_t c) : raw{c} {}
 
   /// Create from discrete R-G-B (-W) portions.
   constexpr PxColor(uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0)
-      : wrgb{(static_cast<uint32_t>(w) << 24) | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(b)} {}
+      : raw{(static_cast<uint32_t>(w) << 24) | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(b)} {}
 
   /// Create from FastLED's \c CRGB
-  PxColor(CRGB c) : wrgb{static_cast<uint32_t>(c)} {}
+  PxColor(CRGB c) : raw{static_cast<uint32_t>(c)} {}
 
   /// Create from FastLED's \c CHSV
-  PxColor(CHSV c) : wrgb{CRGB{c}} {}
+  PxColor(CHSV c) : raw{CRGB{c}} {}
 
   /// Create from \c CRGBW
-  constexpr PxColor(CRGBW c) : wrgb{c.color32} {}
+  constexpr PxColor(CRGBW c) : raw{c.color32} {}
 
   /// Create from \c CHSV32
-  PxColor(CHSV32 c) { hsv2rgb(c, wrgb); }
+  PxColor(CHSV32 c) { hsv2rgb(c, raw); }
 
-  /// The pixel's raw 32 bit color value (white - red - green - blue).
-  uint32_t wrgb;
+  /// Make this color black.
+  void clear() { raw = 0; }
 
-  constexpr uint8_t w() const { return static_cast<uint8_t>((wrgb >> 24) & 0xFF); }
-  constexpr uint8_t r() const { return static_cast<uint8_t>((wrgb >> 16) & 0xFF); }
-  constexpr uint8_t g() const { return static_cast<uint8_t>((wrgb >> 8) & 0xFF); }
-  constexpr uint8_t b() const { return static_cast<uint8_t>(wrgb & 0xFF); }
+  // ----- RGB access -----
+
+  /// Get the red-only portion of this color.
+  constexpr uint8_t r() const { return static_cast<uint8_t>((raw >> 16) & 0xFF); }
+
+  /// Get the green-only portion of this color.
+  constexpr uint8_t g() const { return static_cast<uint8_t>((raw >> 8) & 0xFF); }
+
+  /// Get the blue-only portion of this color.
+  constexpr uint8_t b() const { return static_cast<uint8_t>(raw & 0xFF); }
+
+  // ----- white-only access -----
+
+  /// Make a white-only PxColor.
+  static constexpr PxColor White(uint8_t w) { return PxColor{static_cast<uint32_t>(w) << 24}; }
+
+  /// Get the white part of this color.
+  constexpr uint8_t w() const { return static_cast<uint8_t>((raw >> 24) & 0xFF); }
+
+  /// Set only the white part of this color (RGB remains unchanged).
+  void set_w(uint8_t w) { raw = (raw & 0x00FFFFFF) | (static_cast<uint32_t>(w) << 24); }
+
+  /// Clear only the white part of this color (RGB remains unchanged).
+  void clear_w() { raw = (raw & 0x00FFFFFF); }
+
+  // ----- color manipulations -----
 
   /** Fast scaling function to reduce the brightness of this color.
-   * Use this method when speed more is crucial than accuracy.
-   * Performs \c color*scale/256 for all four channels.
-   * @param scale 0 = black ... 255 = max
+   * Preferably use this method when speed more is crucial than accuracy - or when you're unsure
+   * which fading algorithm to use.
+   * Performs \c color*(255-fadeBy)/256 for all four channels.
+   * @param fadeBy 0 = (almost) don't fade ... 255 = instantly black
    */
-  PxColor &fastScale(uint8_t scale)
+  PxColor &fastFade(uint8_t fadeBy)
   {
-    wrgb = fast_color_scale(wrgb, scale);
+    raw = fast_color_scale(raw, 255 - fadeBy);
     return *this;
   }
 
@@ -71,12 +98,12 @@ struct PxColor
    */
   PxColor &fade(uint8_t fadeBy, bool video)
   {
-    wrgb = color_fade(wrgb, 255 - fadeBy, video);
+    raw = color_fade(raw, 255 - fadeBy, video);
     return *this;
   }
 
   /** Reduce the brightness of this color until it will eventually fade all the way to black.
-   * More accurate than \c fastScale() - but slower.
+   * More accurate than \c fastFade() - but slower.
    * This is just an alias for \c fade() with parameter \c video set to \a false
    */
   PxColor &fadeToBlackBy(uint8_t fadeBy) { return fade(fadeBy, false); }
@@ -97,7 +124,7 @@ struct PxColor
    */
   PxColor &addColor(PxColor color, bool preserveCR = true)
   {
-    wrgb = color_add(wrgb, color.wrgb, preserveCR);
+    raw = color_add(raw, color.raw, preserveCR);
     return *this;
   }
 
@@ -106,37 +133,38 @@ struct PxColor
    */
   PxColor &blendColor(PxColor color, uint8_t blendAmount)
   {
-    wrgb = color_blend(wrgb, color.wrgb, blendAmount);
+    raw = color_blend(raw, color.raw, blendAmount);
     return *this;
   }
 
+  // ----- conversions -----
+
   // implicit conversion only to other RGB-compatible integer based types
-  constexpr operator uint32_t() const { return wrgb; }
+  operator uint32_t &() { return raw; }
+  constexpr operator uint32_t() const { return raw; }
   operator CRGB() const { return to_CRGB(); }
   constexpr operator CRGBW() const { return to_CRGBW(); }
 
   // explicit conversions to other color types
-  constexpr uint32_t to_Raw() const { return wrgb; }
-
-  CRGB to_CRGB() const { return CRGB{wrgb}; }
+  CRGB to_CRGB() const { return CRGB{raw}; }
 
   CHSV to_CHSV() const { return static_cast<CHSV>(to_CHSV32()); }
 
-  constexpr CRGBW to_CRGBW() const { return CRGBW{wrgb}; }
+  constexpr CRGBW to_CRGBW() const { return CRGBW{raw}; }
 
   CHSV32 to_CHSV32() const
   {
     CHSV32 hsv;
-    rgb2hsv(wrgb, hsv);
+    rgb2hsv(raw, hsv);
     return hsv;
   }
 };
 
-inline constexpr bool operator==(PxColor c1, PxColor c2) { return c1.wrgb == c2.wrgb; }
+inline constexpr bool operator==(PxColor c1, PxColor c2) { return c1.raw == c2.raw; }
 inline constexpr bool operator!=(PxColor c1, PxColor c2) { return !(c1 == c2); }
 
-/// Like PxColor::fastScale() - but returns a new PxColor object instead of in-place manipulation.
-inline PxColor fastScaleColor(PxColor color, uint8_t scale) { return color.fastScale(scale); }
+/// Like PxColor::fastFade() - but returns a new PxColor object instead of in-place manipulation.
+inline PxColor fastFadeColor(PxColor color, uint8_t fadeBy) { return color.fastFade(fadeBy); }
 
 /// Like PxColor::fade() - but returns a new PxColor object instead of in-place manipulation.
 inline PxColor fadeColor(PxColor color, uint8_t fadeBy, bool video) { return color.fade(fadeBy, video); }

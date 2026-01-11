@@ -25,7 +25,7 @@ using NIndex = float;
 
 //--------------------------------------------------------------------------------------------------
 
-class ArrayPixelProxy;
+class PxArrayPixelProxy;
 
 /** Interface of a pixel array for rendering 1D effects.
  * @note This class provides only methods for manipulating single pixels. Higher level features,
@@ -54,20 +54,22 @@ public:
   PxColor getColor(AIndex pos) const { return do_getColor(pos); }
 
   /// Set all pixels within the block from \a firstPos to \a lastPos to the given \a color
-  void fillBlock(AIndex firstPos, AIndex lastPos, PxColor color);
+  void fillBlock(AIndex firstPos, AIndex lastPos, PxColor color) { do_fillBlock(firstPos, lastPos, color); }
 
   /** Get a proxy for the pixel at the given position.
    * Many manipulations can be applied to the returned object, like fading or assigning a new color
    * to the corresponding pixel.
-   * @note Be aware that this way implies more performance cost compared to setColor() and getColor()
+   * @note Be aware that accessing individual pixels this way might lead to slightly more
+   * performance cost compared to setColor() and getColor()
    */
-  ArrayPixelProxy pixel(AIndex pos);
+  PxArrayPixelProxy pixel(AIndex pos);
 
   /** Use the index-operator to access a specific pixel (similar as known from FastLED).
    * This is equivalent to pixel()
-   * @note Be aware that this way implies more performance cost compared to setColor() and getColor()
+   * @note Be aware that accessing individual pixels this way might lead to slightly more
+   * performance cost compared to setColor() and getColor()
    */
-  ArrayPixelProxy operator[](AIndex pos);
+  PxArrayPixelProxy operator[](AIndex pos);
 
   // ----- methods using normalized pixel positions -----
 
@@ -79,34 +81,42 @@ public:
   AIndex toAbs(NIndex pos) const { return round(pos * (_size - 1)); }
 
   /// Like setColor() - but with normalized position.
-  void setColor_n(NIndex pos, PxColor color) { do_setColor(toAbs(pos), color); }
+  void setColor_N(NIndex pos, PxColor color) { do_setColor(toAbs(pos), color); }
 
   /** Same as setColor_n() - but only positive values for \a pos will actually set the color.
    * This means that the (optional) pixel at exactly \a pos == 0.0 will \e not be drawn. \n
    * This may be useful when the Animation wants to implement something like a simple "invalid"
    * or "muted" state of a pixel algorithm.
    */
-  void setOptColor_n(NIndex pos, PxColor color)
+  void setOptColor_N(NIndex pos, PxColor color)
   {
     if (pos > 0.0f)
-      setColor_n(pos, color);
+      setColor_N(pos, color);
   }
 
   /// Like getColor() - but with normalized position.
-  PxColor getColor_n(NIndex pos) const { return do_getColor(toAbs(pos)); }
+  PxColor getColor_N(NIndex pos) const { return do_getColor(toAbs(pos)); }
 
   // ----- methods that are manipulating all pixels -----
 
-  /// Fill the entire array with the given \a color
+  /// Switch all pixels off.
+  void clear() { do_fill(PxColor::Black()); }
+
+  /// Set all pixels to the given \a color
   void fill(PxColor color) { do_fill(color); }
 
-  /// Like PxColor::fastScale() - but for all pixels.
-  void fastScale(uint8_t scale) { do_fastScale(scale); }
+  /// Like PxColor::fastFade() - but for all pixels. Preferably use this fading algorithm by default.
+  void fastFade(uint8_t fadeBy) { do_fastFade(fadeBy); }
 
   /// Like PxColor::fade() - but for all pixels.
   void fade(uint8_t fadeBy, bool video) { do_fade(fadeBy, video); }
 
-  /// Like PxColor::fadeToBlackBy() - but for all pixels.
+  /** Like PxColor::fadeToBlackBy() - but for all pixels.
+   * @note Be careful when migrating your effect:
+   * Segment::fadeToBlackBy() uses the faster (but less accurate) \c fast_color_scale() internally,
+   * whereas this method uses the slower (but more accurete) \c color_fade() algorithm. \n
+   * So, to exactly preserve your existing behaviour, use fastFade() instead of this method!
+   */
   void fadeToBlackBy(uint8_t fadeBy) { do_fadeToBlackBy(fadeBy); }
 
   /// Like PxColor::fadeLightBy() - but for all pixels.
@@ -116,7 +126,7 @@ public:
   void fadeToColorBy(PxColor color, uint8_t fadeBy) { do_fadeToColorBy(color, fadeBy); }
 
   // Like fadeToColorBy() - but towards the background color
-  void fadeToBackgroundBy(uint8_t fadeBy) { do_fadeToColorBy(getBackgroundColor(), fadeBy); }
+  void fadeToBackgroundBy(uint8_t fadeBy) { do_fadeToBackgroundBy(fadeBy); }
 
   /// Like PxColor::addColor() - but for all pixels.
   void addColor(PxColor color, bool preserveCR = true) { do_addColor(color, preserveCR); }
@@ -154,8 +164,10 @@ public:
    */
   PxColor getPixelColor(AIndex pos) const { return getColor(pos); }
 
-  /// Don't use this: Alias to support migration from Segment::fade_out()
-  [[deprecated("use fadeToBackgroundBy() instead")]] void fade_out(uint8_t rate) { fadeToBackgroundBy(rate); }
+  /** Alias for compatibility with Segment::fade_out()
+   * Consider using fadeToBackgroundBy() instead.
+   */
+  void fade_out(uint8_t rate) { fadeToBackgroundBy(rate); }
 
 protected:
   PxArray(const PxArray &) = default;
@@ -165,30 +177,30 @@ protected:
   /// Call this method when the segment's dimension has changed.
   void updateSize(AIndex newSize) { _size = newSize; }
 
-  /// Get the background color of this pixel array.
+  /// Get the background color.
   virtual PxColor do_getBackgroundColor() const = 0;
 
   /** Get color of the pixel at the given position.
-   * @note Be aware that \a pos may be outside of the the array bounds.
+   * @note Be aware that the position may be outside of the the bounds.
    * Any color can be returned in that case.
    */
   virtual PxColor do_getColor(AIndex pos) const = 0;
 
   /** Set the pixel at the given position to the given \a color
-   * @note Be aware that \a pos may be outside of the the array bounds.
+   * @note Be aware that the position may be outside of the the bounds.
    */
   virtual void do_setColor(AIndex pos, PxColor color) = 0;
 
-  /// Fill the entire array with the given \a color
+  /// Set all pixels to the given \a color
   virtual void do_fill(PxColor color);
 
   /** Set all pixels within the block from \a firstPos to \a lastPos to the given \a color
-   * @note It is guaranteed that firstPos <= lastPos and that both are within the array bounds: 0 <= pos <= size()-1
+   * @note Be aware that the positions may be outside of the the bounds.
    */
   virtual void do_fillBlock(AIndex firstPos, AIndex lastPos, PxColor color);
 
-  /// Like PxColor::fastScale() - but for all pixels.
-  virtual void do_fastScale(uint8_t scale);
+  /// Like PxColor::fastFade() - but for all pixels.
+  virtual void do_fastFade(uint8_t fadeBy);
 
   /// Like PxColor::fade() - but for all pixels.
   virtual void do_fade(uint8_t fadeBy, bool video);
@@ -201,6 +213,9 @@ protected:
 
   /// Like PxColor::fadeToColorBy() - but for all pixels.
   virtual void do_fadeToColorBy(PxColor color, uint8_t fadeBy);
+
+  // Like do_fadeToColorBy() - but towards the background color
+  virtual void do_fadeToBackgroundBy(uint8_t fadeBy);
 
   /// Like PxColor::addColor() - but for all pixels.
   virtual void do_addColor(PxColor color, bool preserveCR);
@@ -221,11 +236,11 @@ private:
  * @see PxArray::pixel()
  * @see PxArray::operator[]
  */
-class ArrayPixelProxy
+class PxArrayPixelProxy
 {
 public:
   /// Only used internally.
-  ArrayPixelProxy(PxArray &parent, AIndex arrayPos) : _parent(parent), _pos(arrayPos) {}
+  PxArrayPixelProxy(PxArray &parent, AIndex pos) : _parent{parent}, _pos{pos} {}
 
   /// Get the color of this pixel.
   PxColor getColor() const { return _parent.getColor(_pos); }
@@ -233,8 +248,8 @@ public:
   /// Set this pixel to the given \a color
   void setColor(PxColor color) { _parent.setColor(_pos, color); }
 
-  /// Like PxColor::fastScale()
-  void fastScale(uint8_t scale) { setColor(getColor().fastScale(scale)); }
+  /// Like PxColor::fastFade()
+  void fastFade(uint8_t fadeBy) { setColor(getColor().fastFade(fadeBy)); }
 
   /// Like PxColor::fade()
   void fade(uint8_t fadeBy, bool video) { setColor(getColor().fade(fadeBy, video)); }
@@ -255,7 +270,7 @@ public:
   void blendColor(PxColor color, uint8_t blend) { setColor(getColor().blendColor(color, blend)); }
 
   /// Assign a new color to this pixel.
-  ArrayPixelProxy &operator=(PxColor color)
+  PxArrayPixelProxy &operator=(PxColor color)
   {
     setColor(color);
     return *this;
@@ -265,7 +280,7 @@ public:
   operator PxColor() const { return getColor(); }
 
   /// Assignment means just assigning the other's color.
-  ArrayPixelProxy &operator=(const ArrayPixelProxy &other)
+  PxArrayPixelProxy &operator=(const PxArrayPixelProxy &other)
   {
     setColor(other.getColor());
     return *this;
@@ -283,32 +298,32 @@ private:
 /** Draw a line in the given \a color, from the given \a firstPos to \a lastPos
  * Direction doesn't matter; \a lastPos may be smaller than \a firstPos
  */
-inline void lineAbs(PxArray &pxa, AIndex firstPos, AIndex lastPos, PxColor color) { pxa.fillBlock(firstPos, lastPos, color); }
+inline void line_abs(PxArray &pxa, AIndex firstPos, AIndex lastPos, PxColor color) { pxa.fillBlock(firstPos, lastPos, color); }
 
 /** Draw a line in the given \a color, with the given \a length and starting at \a startPos.
  * Positive values for \a length draw upward the array, negative values draw in the other direction.
  */
-void lineRel(PxArray &pxa, AIndex startPos, int length, PxColor color);
+void line_rel(PxArray &pxa, AIndex startPos, int length, PxColor color);
 
-/// Similar to lineRel() but draws around the given \a centerPos as middle of the line.
-inline void lineCentered(PxArray &pxa, AIndex centerPos, int length, PxColor color) { lineRel(pxa, centerPos - length / 2, length, color); }
+/// Similar to line_rel() but draws around the given \a centerPos as middle of the line.
+inline void line_centered(PxArray &pxa, AIndex centerPos, int length, PxColor color) { line_rel(pxa, centerPos - length / 2, length, color); }
 
-/// Like lineRel() - but with normalized positions.
-inline void lineRel_n(PxArray &pxa, NIndex startPos, float length, PxColor color) { lineRel(pxa, pxa.toAbs(startPos), pxa.toAbs(length), color); }
+/// Like line_rel() - but with normalized positions.
+inline void line_rel_N(PxArray &pxa, NIndex startPos, float length, PxColor color) { line_rel(pxa, pxa.toAbs(startPos), pxa.toAbs(length), color); }
 
-/// Like lineAbs() - but with normalized positions.
-inline void lineAbs_n(PxArray &pxa, NIndex firstPos, NIndex lastPos, PxColor color) { lineAbs(pxa, pxa.toAbs(firstPos), pxa.toAbs(lastPos), color); }
+/// Like line_abs() - but with normalized positions.
+inline void line_abs_N(PxArray &pxa, NIndex firstPos, NIndex lastPos, PxColor color) { line_abs(pxa, pxa.toAbs(firstPos), pxa.toAbs(lastPos), color); }
 
-/// Like lineCentered() - but with normalized positions.
-inline void lineCentered_n(PxArray &pxa, NIndex centerPos, float length, PxColor color) { lineRel_n(pxa, centerPos - length / 2.0f, length, color); }
+/// Like line_centered() - but with normalized positions.
+inline void line_centered_N(PxArray &pxa, NIndex centerPos, float length, PxColor color) { line_rel_N(pxa, centerPos - length / 2.0f, length, color); }
 
 //--------------------------------------------------------------------------------------------------
 // Just some inline method implementations below - nothing more to see...
 //--------------------------------------------------------------------------------------------------
 
-inline ArrayPixelProxy PxArray::pixel(AIndex pos) { return ArrayPixelProxy(*this, pos); }
+inline PxArrayPixelProxy PxArray::pixel(AIndex pos) { return PxArrayPixelProxy{*this, pos}; }
 
-inline ArrayPixelProxy PxArray::operator[](AIndex pos) { return pixel(pos); }
+inline PxArrayPixelProxy PxArray::operator[](AIndex pos) { return pixel(pos); }
 
 inline void PxArray::do_fill(PxColor color) { do_fillBlock(0, _size - 1, color); }
 
@@ -316,14 +331,16 @@ inline void PxArray::do_fadeToBlackBy(uint8_t fadeBy) { do_fade(fadeBy, false); 
 
 inline void PxArray::do_fadeLightBy(uint8_t fadeBy) { do_fade(fadeBy, true); }
 
+inline void PxArray::do_fadeToBackgroundBy(uint8_t fadeBy) { do_fadeToColorBy(getBackgroundColor(), fadeBy); }
+
 //--------------------------------------------------------------------------------------------------
 
-inline void lineRel(PxArray &pxa, AIndex startPos, int length, PxColor color)
+inline void line_rel(PxArray &pxa, AIndex startPos, int length, PxColor color)
 {
   if (length > 0)
-    lineAbs(pxa, startPos, startPos + length - 1, color);
+    line_abs(pxa, startPos, startPos + length - 1, color);
   else if (length < 0)
-    lineAbs(pxa, startPos, startPos + length + 1, color);
+    line_abs(pxa, startPos, startPos + length + 1, color);
 }
 
 //--------------------------------------------------------------------------------------------------
