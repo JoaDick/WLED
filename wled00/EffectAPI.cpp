@@ -64,26 +64,22 @@ uint16_t FxEnv::showEffect(uint32_t now)
 bool FxEnv::updateSegment(Segment &seg, SegEnv &segenv)
 {
 #if (1)
-  const uint16_t new_seglen = seg.virtualLength();
   const uint16_t new_segW = seg.virtualWidth();
   const uint16_t new_segH = seg.virtualHeight();
 #else
-  const uint16_t new_seglen = seg.vLength();
   const uint16_t new_segW = seg.vWidth();
   const uint16_t new_segH = seg.vHeight();
 #endif
   const bool new_is2D = seg.is2D();
 
-  const bool dimensionChanged = (_seglen != new_seglen) ||
+  const bool dimensionChanged = _pxArray.updateSegment(seg) ||
                                 (_segW != new_segW) ||
                                 (_segH != new_segH) ||
                                 (_is2D != new_is2D);
 
-  _seglen = new_seglen;
   _segW = new_segW;
   _segH = new_segH;
   _is2D = new_is2D;
-  _seg = &seg;
   _config._seg = &seg;
   _segenv = &segenv;
 

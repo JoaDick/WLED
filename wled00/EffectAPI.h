@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "FX.h"
+#include "FxUtils.h"
 #include "PxColor.h"
 
 //--------------------------------------------------------------------------------------------------
@@ -200,12 +201,12 @@ public:
   /** Get the segment on which the effect shall be rendered.
    * @note Effect implementations shall use this instead of \c SEGMENT
    */
-  Segment &seg() { return *_seg; }
+  Segment &seg() { return _pxArray.getSegment(); }
 
   /** Get the length of the segment.
    * @note Effect implementations shall use this instead of \c SEGLEN
    */
-  uint16_t seglen() const { return _seglen; }
+  uint16_t seglen() const { return _pxArray.size(); }
 
   /** Get the width of the segment.
    * @note Effect implementations shall use this instead of \c SEG_W
@@ -224,6 +225,9 @@ public:
 
   /// Get user configuration data (settings from the UI).
   FxConfig &ui() { return _config; }
+
+  /// Get the 1D canvas for rendering the pixel magic.
+  PxArray &pxArray() { return _pxArray; }
 
   /** Fallback rendering function.
    * Can be called as fallback by an effect when it cannot render its own stuff, e.g. when something
@@ -275,7 +279,7 @@ public:
 
 protected:
   FxEnv(const FxEnv &) = default;
-  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _config{seg}, _now{now} { updateSegment(seg, segenv); }
+  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _pxArray{seg}, _config{seg}, _now{now} { updateSegment(seg, segenv); }
   ~FxEnv() = default;
 
   /** Render the effect's pixel magic on the segment.
@@ -300,13 +304,12 @@ private:
 
 private:
   FxConfig _config;
+  SegmentPxArray _pxArray;
   RawEffectPtr _effect = nullptr;
-  Segment *_seg = nullptr;
   SegEnv *_segenv = nullptr;
   uint32_t _now = 0;
   uint32_t _age = 0;
   uint32_t _deltaT = 0;
-  uint16_t _seglen = 0;
   uint16_t _segW = 0;
   uint16_t _segH = 0;
   uint16_t _frametime = 0;
