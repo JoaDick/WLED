@@ -2406,7 +2406,7 @@ void fx_lake(FxEnv& env) {
   {
     int index = cos8_t((i*15)+ wave1)/2 + cubicwave8((i*23)+ wave2)/2;
     uint8_t lum = (index > wave3) ? index - wave3 : 0;
-    seg.setPixelColor(i, ui.color_from_palette(index, false, false, 0, lum));
+    seg.setPixelColor(i, color_from_palette(env, index, false, false, 0, lum));
   }
 }
 static const char _data_FX_MODE_LAKE[] PROGMEM = "1 Lake FX@!;Fx;!";
@@ -4118,7 +4118,7 @@ void fx_plasma(FxEnv& env) {
     unsigned colorIndex = cubicwave8((i*(2+ 3*(ui.speed() >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
                               + cos8_t((i*(1+ 2*(ui.speed() >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
     unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (ui.intensity()>>1))));
-    seg.setPixelColor(i, ui.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
+    seg.setPixelColor(i, color_from_palette(env, colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
   }
 }
 static const char _data_FX_MODE_PLASMA[] PROGMEM = "1 Plasma FX@Phase,!;!;!";
@@ -4758,7 +4758,7 @@ void fx_blends(FxEnv& env) {
   unsigned shift = (strip.now * ((ui.speed() >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], ui.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    pixels[i] = color_blend(pixels[i], color_from_palette(env, shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
     shift += 3;
   }
 
@@ -5025,7 +5025,7 @@ void fx_aurora(FxEnv& env) {
   for (int i = 0; i < wavecount; i++) {
     waves[i].update(env.seglen(), ui.speed());
     if (!(waves[i].stillAlive())) {
-      waves[i].init(env.seglen(), ui.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
+      waves[i].init(env.seglen(), color_from_palette(env, hw_random8(), false, false, hw_random8(0, 3)));
     }
     waves[i].updateCachedValues();
   }
@@ -7180,7 +7180,7 @@ void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
     uint8_t colorIndex=thisbright;
     if (volumeSmth * ui.intensity() / 64 < thisbright) {thisbright = 0;}
 
-    seg.addPixelColor(i, color_blend(SEGCOLOR(1), ui.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
+    seg.addPixelColor(i, color_blend(SEGCOLOR(1), color_from_palette(env, colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
   }
 } // mode_plasmoid()
 static const char _data_FX_MODE_PLASMOID[] PROGMEM = "1 Plasmoid FX@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
@@ -11052,9 +11052,7 @@ void fx_ColorClouds(FxEnv& env)
       hue = cos8_t(128 + hue / 2);
     }
 
-    uint32_t pixel;
-    if(ui.paletteNr()) { pixel = ui.color_from_palette(hue, false, true, 0, vol); }
-    else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
+    uint32_t pixel = rainbowColor(ui, hue, vol);
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
     // Unfortunately this doesn't always work properly when gamma correction for color is enabled.
