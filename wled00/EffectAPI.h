@@ -27,6 +27,8 @@ class ParticleSystem2D;
 //--------------------------------------------------------------------------------------------------
 
 /** Interface for retrieving the effect's user configuration settings (from the UI).
+ * Example metadata-string (as template for your convenience; with palette and without flags):
+ * \c "MyEffect@speed,intensity,custom1,custom2,custom3,check1,check2,check3;fx,bg,cs;!;;sx=98,ix=76,c1=54,c2=32,c3=10,o1=1,o2=1,o3=1,pal=11"
  * @see https://kno.wled.ge/interfaces/json-api/#effect-metadata
  */
 class FxConfig
@@ -37,54 +39,62 @@ public:
   FxConfig &operator=(const FxConfig &) = delete;
   FxConfig &operator=(FxConfig &&) = delete;
 
-  // ----- Slider -----
+  // ----- slider -----
 
   /** Get current setting of the 'Speed" slider (with Clock icon).
+   * metadata-string: \c sx=0-255
    * @note Effect implementations shall use this instead of \c SEGMENT.speed
    */
   uint8_t speed() const { return _seg->speed; }
 
   /** Get current setting of the 'Intensity" slider (with Fire icon).
+   * metadata-string: \c ix=0-255
    * @note Effect implementations shall use this instead of \c SEGMENT.intensity
    */
   uint8_t intensity() const { return _seg->intensity; }
 
   /** Get current setting of custom slider 1 (with Star icon).
+   * metadata-string: \c c1=0-255
    * @note Effect implementations shall use this instead of \c SEGMENT.custom1
    */
   uint8_t custom1() const { return _seg->custom1; }
 
   /** Get current setting of custom slider 2 (with Gear icon).
+   * metadata-string: \c c2=0-255
    * @note Effect implementations shall use this instead of \c SEGMENT.custom2
    */
   uint8_t custom2() const { return _seg->custom2; }
 
   /** Get current setting of custom slider 3 (with Eye icon; reduced range 0-31).
+   * metadata-string: \c c3=0-31
    * @note Effect implementations shall use this instead of \c SEGMENT.custom3
    */
   uint8_t custom3_reduced() const { return _seg->custom3; }
 
-  /// Current setting of custom slider 3 (with Eye icon; full range 0-255).
+  /// Current setting of custom slider 3 (with Eye icon; upscaled to almost full range 0-248).
   uint8_t custom3() const { return custom3_reduced() << 3; }
 
-  // ----- Checkbox -----
+  // ----- checkbox -----
 
   /** Get current setting of checkbox 1 (with Palette icon).
+   * metadata-string: \c o1=0|1
    * @note Effect implementations shall use this instead of \c SEGMENT.check1
    */
   bool check1() const { return _seg->check1; }
 
   /** Get current setting of checkbox 2 (with Overlay icon).
+   * metadata-string: \c o2=0|1
    * @note Effect implementations shall use this instead of \c SEGMENT.check2
    */
   bool check2() const { return _seg->check2; }
 
   /** Get current setting of checkbox 3 (with Heart icon).
+   * metadata-string: \c o3=0|1
    * @note Effect implementations shall use this instead of \c SEGMENT.check3
    */
   bool check3() const { return _seg->check3; }
 
-  // ----- Color -----
+  // ----- color -----
 
   /** Get currently selected effect/foreground color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(0)
@@ -99,52 +109,36 @@ public:
   /** Get currently selected extra color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(2)
    */
-  uint32_t auxColor() const { return color(2); }
+  uint32_t csColor() const { return color(2); }
 
-  /** Get the desired color \a n
+  /** Get the desired color \a x
    * 0=fg / 1=bg / 2=aux / other=black
    * @note Effect implementations shall use this instead of \c SEGCOLOR(n)
    */
-  uint32_t color(unsigned n) const { return _seg->getCurrentColor(n); }
-
-  /** Get a "rotating" color, based on the given \a pos
-   * When the \e Default palette (0) is selected: \n
-   * Rotates the color in HSV space, where \a pos is H (0 = 0deg, 256 = 360deg) with S and V fixed
-   * to 255. The colors are a transition red --> green --> blue --> back to red. \n
-   * When another palette is selected: \n
-   * Returns a color from that palette, where \a pos represents the palette index.
-   * @note Effect implementations shall use this instead of \c SEGMENT.color_wheel()
-   */
-  uint32_t color_wheel(uint8_t pos) const { return _seg->color_wheel(pos); }
-
-  // ----- Palette -----
+  uint32_t color(unsigned x) const { return _seg->getCurrentColor(x); }
 
   /** Get number of currently selected color palette.
+   * metadata-string: \c pal=0-255
+   * See palettes.cpp for palette numbers (or popup in UI), e.g.
+   * -  0 = Default
+   * -  1 = Random Cycle
+   * -  2 = Color 1
+   * -  3 = Colors 1&2
+   * -  4 = Color Gradient
+   * -  5 = Colors only
+   * -  6 = Party
+   * - 11 = Rainbow
    * @note Effect implementations shall use this instead of \c SEGMENT.palette
    */
   uint8_t paletteNr() const { return _seg->palette; }
 
-  /** Get currently selected color palette.
-   * @note Effect implementations shall use this instead of \c SEGPALETTE
+  /** Get the "Palette wrapping" setting from the "LED Preferences" page in the UI.
+   * - 0 = Linear (wrap when moving)
+   * - 1 = Linear (always wrap)
+   * - 2 = Linear (never wrap)
+   * - 3 = None (not recommended)
    */
-  const CRGBPalette16 &palette() const { return Segment::getCurrentPalette(); }
-
-  /** Get a single color from the currently selected color palette.
-   * @param i  Palette index; will wrap around automatically. See \a mapping for its range.
-   * @param mapping  \c false = the range of \a i for a full palette cycle is 0 - 255
-   *                 \c true  = the range of \a i for a full palette cycle is 0 - \c FxEnv::seglen()
-   * @param moving  Color palettes can wrap back to the start smoothly.
-   *                Set to \c true if you want that wrapping, e.g. when the effect uses a "moving" palette.
-   *                Set to \c false to get a hard edge from end to start of the palette.
-   * @param mcol  Only when the \e Default palette (0) is selected, return the standard color for 0 (fg), 1 (bg) or 2 (aux) instead.
-   *              Ignored if this value is >2 or when another palette is selected.
-   * @param pbri  Value to scale down the brightness of the returned color by. Default is 255, meaning full brightness.
-   * @note Effect implementations shall use this instead of \c SEGMENT.color_from_palette()
-   */
-  uint32_t color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri = 255) const
-  {
-    return _seg->color_from_palette(i, mapping, moving, mcol, pbri);
-  }
+  uint8_t paletteBlend() const;
 
 private:
   friend class FxEnv;
@@ -167,6 +161,8 @@ public:
   FxEnv &operator=(const FxEnv &) = delete;
   FxEnv &operator=(FxEnv &&) = delete;
 
+  // ----- time related methods -----
+
   /** The current timestamp (in ms).
    * @note Effect implementations shall use this instead of \c strip.now
    */
@@ -179,6 +175,14 @@ public:
 
   /// Duration (in ms) since the effect was rendered the last time.
   uint32_t deltaT() const { return _deltaT; }
+
+  /** Returns \c true only for the during the very first frame.
+   * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor
+   * of your effect class.
+   */
+  bool isFistFrame() const;
+
+  // ----- rendering related methods -----
 
   /** Get the segment on which the effect shall be rendered.
    * @note Effect implementations shall use this instead of \c SEGMENT
@@ -205,16 +209,24 @@ public:
    */
   bool is2D() const { return _is2D; }
 
+  // ----- methods for accessing resources  -----
+
   /// Get user configuration data (settings from the UI).
   FxConfig &ui() { return _config; }
 
-  /** Fallback rendering function.
-   * Can be called as fallback by an effect when it cannot render its own stuff, e.g. when something
-   * went terribly wrong.
-   * @note Calling this function implies \c setBroken() which means that the effect's rendering
-   * function will no more be called!
+  /** Get persistent effect data.
+   * @note Effect implementations shall use this instead of \c SEGENV
+   * Nevertheless, prefer your own effect class member variables over this.
    */
-  void showFallbackEffect();
+  SegEnv &segenv() { return *_segenv; }
+
+  /** Get currently selected color palette.
+   * @param env Effect runtime environment.
+   * @note Effect implementations shall use this instead of \c SEGPALETTE
+   */
+  const CRGBPalette16 &currentPalette(FxEnv &env) { return seg().getCurrentPalette(); }
+
+  // ----- effect related methods -----
 
   /** Mark the effect as non-functional.
    * Can be called when something went terribly wrong, and the effect is no more working.
@@ -232,21 +244,18 @@ public:
    */
   void setFrametime(uint16_t ms) { _frametime = ms; }
 
-  /** Returns \c true only for the during the very first frame.
-   * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor
-   * of your effect class.
+  /** Fallback rendering function.
+   * Can be called as fallback by an effect when it cannot render its own stuff, e.g. when something
+   * went terribly wrong.
+   * @note Calling this function implies setBroken() - which means that the effect's rendering
+   * function will no more be called!
    */
-  bool isFistFrame();
-
-  /** Get persistent effect data (for legacy compatibility).
-   * @note Effect implementations shall use this instead of \c SEGENV
-   * Nevertheless, prefer your own effect class member variables over this.
-   */
-  SegEnv &segenv() { return *_segenv; }
+  void showFallbackEffect();
 
 protected:
   FxEnv(const FxEnv &) = default;
-  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now) : _config{seg}, _now{now} { updateSegment(seg, segenv); }
+  FxEnv(Segment &seg, SegEnv &segenv, uint32_t now)
+      : _config{seg}, _now{now} { updateSegment(seg, segenv); }
   ~FxEnv() = default;
 
   /** Render the effect's pixel magic on the segment.
@@ -290,6 +299,77 @@ private:
  * announced via \a env.setFrametime()
  */
 using EffectFunction = void (*)(FxEnv &env);
+
+/** Get a color from the currently selected color palette.
+ * @param env Effect runtime environment.
+ * @param index Palette index: 0 = first color of the palette ... 255 = last color
+ * @param brightness Brightness of the color.
+ * @param blendType Color interpolation options for the palette:
+ * - \c NOBLEND = No interpolation between palette entries (not recommended).
+ * - \c LINEARBLEND = Linear interpolation between palette entries, with wrap-around from end to the beginning again.
+ * - \c LINEARBLEND_NOWRAP = Linear interpolation between palette entries, but no wrap-around.
+ */
+inline uint32_t paletteColor(FxEnv &env, uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND)
+{
+  return ColorFromPaletteWLED(env.currentPalette(env), index, brightness, blendType);
+}
+
+/** Get a color based on a spectrum; either rainbow or from selected palette.
+ * When the \e Default palette (0) is selected in the UI, a rainbow color (based on HSV color model)
+ * is returned. Otherwise, a color from the currently selected palette is returned.
+ * @param env Effect runtime environment.
+ * @param hue Rainbow's HSV hue value, or palette index.
+ * @param vol Brightness of the color.
+ * @param blendType Color interpolation options for the palette:
+ * - \c NOBLEND = No interpolation between palette entries (not recommended).
+ * - \c LINEARBLEND = Linear interpolation between palette entries, with wrap-around from end to the beginning again.
+ * - \c LINEARBLEND_NOWRAP = Linear interpolation between palette entries, but no wrap-around.
+ * @note Effect implementations may use this as alternative to \c color_wheel()
+ * The difference to that function is that \a vol and \a blendType can be specified by the caller.
+ */
+inline uint32_t rainbowColor(FxEnv &env, uint8_t hue, uint8_t vol = 255, TBlendType blendType = LINEARBLEND)
+{
+  if (env.ui().paletteNr())
+    return paletteColor(env, hue, vol, blendType);
+  uint32_t color;
+  hsv2rgb(CHSV32(hue, 255, vol), color);
+  return color;
+}
+
+/** Alias for compatibility with Segment::color_wheel()
+ * Get a "rotating" color, based on the given \a pos
+ * When the \e Default palette (0) is selected: \n
+ * Rotates the color in HSV space, where \a pos is H (0 = 0deg ... 256 = 360deg) with S and V fixed
+ * to 255. The colors are a transition red --> green --> blue --> back to red. \n
+ * When another palette is selected: \n
+ * Returns a color from that palette, where \a pos represents the palette index.
+ * @param env Effect runtime environment.
+ * @param pos Position in the color wheel.
+ * @note Effect implementations shall use this instead of \c SEGMENT.color_wheel()
+ */
+inline uint32_t color_wheel(FxEnv &env, uint8_t pos)
+{
+  return env.seg().color_wheel(pos);
+}
+
+/** Alias for compatibility with Segment::color_from_palette()
+ * Get a single color from the currently selected color palette.
+ * @param env Effect runtime environment.
+ * @param i  Palette index; will wrap around automatically. See \a mapping for its range.
+ * @param mapping  \c false = the range of \a i for a full palette cycle is 0 ... 255
+ *                 \c true  = the range of \a i for a full palette cycle is 0 ... \c FxEnv::seglen()
+ * @param moving  Color palettes can wrap back to the start smoothly.
+ *                Set to \c true if you want that wrapping, e.g. when the effect uses a "moving" palette.
+ *                Set to \c false to get a hard edge from end to start of the palette.
+ * @param mcol  Only when the \e Default palette (0) is selected, return the standard color for 0 (fg), 1 (bg) or 2 (aux) instead.
+ *              Ignored if this value is >2 or when another palette is selected.
+ * @param pbri  Value to scale down the brightness of the returned color by. Default is 255, meaning full brightness.
+ * @note Effect implementations shall use this instead of \c SEGMENT.color_from_palette()
+ */
+inline uint32_t color_from_palette(FxEnv &env, uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri = 255)
+{
+  return env.seg().color_from_palette(i, mapping, moving, mcol, pbri);
+}
 
 //--------------------------------------------------------------------------------------------------
 
@@ -402,7 +482,7 @@ protected:
 
 //--------------------------------------------------------------------------------------------------
 
-/** Persistent effect data (for legacy compatibility).
+/** Persistent effect data.
  * Effect implementations shall use this instead of \c SEGENV
  * @note This helper class emulates the same allocation functionality as the Segment class provides.
  * Nevertheless, try to avoid using that feature. Prefer implementing your own class-based effect
@@ -699,7 +779,7 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
-inline bool FxEnv::isFistFrame() { return segenv().call == 0; }
+inline bool FxEnv::isFistFrame() const { return _segenv->call == 0; }
 
 /// The worm of fail.
 void fx_broken(FxEnv &env);
