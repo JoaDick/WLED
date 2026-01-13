@@ -10989,7 +10989,7 @@ static const char _data_RESERVED[] PROGMEM = "RSVD";
 
 #ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 //////////////////////////////////////////////////////////////////////////////////////////
-// backup of converted effects examples
+// new effects examples
 
 /** Softly floating colorful clouds.
  * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
@@ -11067,6 +11067,7 @@ void fx_ColorClouds(FxEnv& env)
 static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
 
+/// Demo example with a WU pixel.
 void fx_WU_Demo(FxEnv& env)
 {
   auto& ui = env.ui();
@@ -11091,8 +11092,8 @@ void fx_WU_Demo(FxEnv& env)
   const int32_t x_raw = perlin16(x_0, x_t);
   const int32_t y_raw = perlin16(y_0, y_t);
 
-  const auto x = 0.5f + NIndex(x_raw - 0x8000) / 0x7FFF; // target range: 0.0 ... 1.0
-  const auto y = 0.5f + NIndex(y_raw - 0x8000) / 0x7FFF; // target range: 0.0 ... 1.0
+  const auto x = 0.5f + NIndex(x_raw - 0x8000) / 0x7FFF; // target range: ca. 0.0 ... 1.0
+  const auto y = 0.5f + NIndex(y_raw - 0x8000) / 0x7FFF; // target range: ca. 0.0 ... 1.0
   const auto pos = NPoint{x, y};
 
   matrix.clear();
@@ -11102,6 +11103,87 @@ void fx_WU_Demo(FxEnv& env)
     wu_pixel_N(matrix, pos, ui.fxColor());
 }
 static const char _data_FX_MODE_WU_PIXEL_DEMO[] PROGMEM = "1 WU Demo FX@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// backup of converted effects examples
+
+/// Demo example for darwing text.
+void fx_Text_Demo(FxEnv& env)
+{
+  auto& ui = env.ui();
+  auto& matrix = env.pxMatrix();
+  auto& segenv = env.segenv();
+
+  // Set random start.
+  if(env.isFistFrame()) {
+    segenv.aux0 = hw_random16();
+    segenv.aux1 = hw_random16();
+  }
+  const uint32_t rnd_x = segenv.aux0;
+  const uint32_t rnd_y = segenv.aux1;
+
+  const uint32_t x_speed = ui.speed();
+  const uint32_t y_speed = ui.intensity();
+
+  const uint32_t now = env.now();
+  const uint32_t x_t = now * x_speed;
+  const uint32_t y_t = now * y_speed;
+
+  const int32_t x_raw = perlin16(rnd_x, x_t);
+  const int32_t y_raw = perlin16(rnd_y, y_t);
+
+  // Only ASCII 32-126 supported (0x20-0x7E)
+  char letter = 0x20 + (now / 512) % (0x7E - 0x20);
+  // letter = 'A';
+
+  // Supported font sizes: 4x6, 5x8, 5x12, 6x8, 7x9=63
+  uint8_t letterWidth;
+  uint8_t letterHeight;
+  switch(ui.custom3_reduced() / 6)
+  {
+    case 0:
+      letterWidth = 4;
+      letterHeight = 6;
+      break;
+    case 1:
+      letterWidth = 5;
+      letterHeight = 8;
+      break;
+    case 2:
+      letterWidth = 5;
+      letterHeight = 12;
+      break;
+    case 3:
+      letterWidth = 6;
+      letterHeight = 8;
+      break;
+    default:
+      letterWidth = 7;
+      letterHeight = 9;
+      break;
+  }
+
+  const int32_t x_center = (x_raw * matrix.sizeX()) / 0xFFFF; // target range: ca. 0 ... sizeX()
+  const int32_t y_center = (y_raw * matrix.sizeY()) / 0xFFFF; // target range: ca. 0 ... sizeY()
+  const int32_t d_x = (letterWidth - 1) / 2;
+  const int32_t d_y = (letterHeight - 1) / 2;
+  const int32_t x_0 = x_center - d_x;
+  const int32_t y_0 = y_center - d_y;
+
+  matrix.clear();
+  if(ui.check2()) {
+    // white dot = center position (from perlin noise)
+    matrix.setColor(x_center, y_center, 0xFFFFFF);
+    // red dot = position for drawing
+    matrix.setColor(x_0, y_0, 0xFF0000);
+    matrix.setColor(x_0, y_0 + letterHeight - 1, 0x0F0000);
+    matrix.setColor(x_0 + letterWidth - 1, y_0, 0x0F0000);
+    matrix.setColor(x_0 + letterWidth - 1, y_0 + letterHeight - 1, 0x0F0000);
+  }
+  drawCharacter(matrix, letter, {x_0, y_0}, letterWidth, letterHeight, ui.fxColor(), ui.bgColor());
+}
+static const char _data_FX_MODE_TEXT_DEMO[] PROGMEM = "1 Text Demo FX@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
 
 
 /*
@@ -11602,7 +11684,6 @@ addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
 addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
 addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
-addEffectFunction<fx_WU_Demo>(*this, 255, _data_FX_MODE_WU_PIXEL_DEMO);
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 #endif
@@ -11614,6 +11695,8 @@ addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
 addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
 addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
 addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
+addEffectFunction<fx_WU_Demo>(*this, 255, _data_FX_MODE_WU_PIXEL_DEMO);
+addEffectFunction<fx_Text_Demo>(*this, 255, _data_FX_MODE_TEXT_DEMO);
 addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
 
 addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);

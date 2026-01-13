@@ -23,10 +23,10 @@ struct PxColor
   /// The pixel's raw 32 bit color value (white - red - green - blue).
   uint32_t raw;
 
-  // ----- Initialization -----
+  // ----- initialization -----
 
   /// Make a black PxColor.
-  static constexpr PxColor Black() { return PxColor{0}; }
+  static constexpr PxColor Black() { return {}; }
 
   /// Default constructor - leaves the color uninitialized!
   PxColor() = default;

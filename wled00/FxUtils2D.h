@@ -70,13 +70,13 @@ public:
   void setColor(APoint pos, PxColor color) { do_setColor(pos, color); }
 
   /// Convenience wrapper with discrete position arguments.
-  void setColor(AIndex x, AIndex y, PxColor color) { do_setColor(APoint{x, y}, color); }
+  void setColor(AIndex x, AIndex y, PxColor color) { do_setColor({x, y}, color); }
 
   /// Get color of the pixel at the given position.
   PxColor getColor(APoint pos) const { return do_getColor(pos); }
 
   /// Convenience wrapper with discrete position arguments.
-  PxColor getColor(AIndex x, AIndex y) const { return do_getColor(APoint{x, y}); }
+  PxColor getColor(AIndex x, AIndex y) const { return do_getColor({x, y}); }
 
   /** Get a proxy for the pixel at the given position.
    * Many manipulations can be applied to the returned object, like fading or assigning a new color
@@ -175,17 +175,17 @@ public:
   /** Alias for compatibility with Segment::setPixelColorXY()
    * Consider using setColor() with \c APoint as argument instead.
    */
-  void setPixelColorXY(AIndex x, AIndex y, PxColor color) { setColor(APoint{x, y}, color); }
+  void setPixelColorXY(AIndex x, AIndex y, PxColor color) { setColor({x, y}, color); }
 
   /** Alias for compatibility with Segment::setPixelColorXY()
    * Consider using setColor() with \c APoint and \c PxColor as argument instead.
    */
-  void setPixelColorXY(AIndex x, AIndex y, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) { setColor(APoint{x, y}, PxColor{r, g, b, w}); }
+  void setPixelColorXY(AIndex x, AIndex y, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) { setColor({x, y}, PxColor{r, g, b, w}); }
 
   /** Alias for compatibility with Segment::getPixelColorXY()
    * Consider using getColor() with \c APoint as argument instead.
    */
-  PxColor getPixelColorXY(AIndex x, AIndex y) const { return getColor(APoint{x, y}); }
+  PxColor getPixelColorXY(AIndex x, AIndex y) const { return getColor({x, y}); }
 
   /** Alias for compatibility with Segment::fade_out()
    * Consider using fadeToBackgroundBy() instead.
@@ -343,8 +343,8 @@ public:
 
 private:
   PxColor do_getBackgroundColor() const { return _parent.getBackgroundColor(); }
-  PxColor do_getColor(AIndex pos) const { return _parent.getColor(APoint{pos, _posY}); }
-  void do_setColor(AIndex pos, PxColor color) { _parent.setColor(APoint{pos, _posY}, color); }
+  PxColor do_getColor(AIndex pos) const { return _parent.getColor({pos, _posY}); }
+  void do_setColor(AIndex pos, PxColor color) { _parent.setColor({pos, _posY}, color); }
 
 private:
   PxMatrix &_parent;
@@ -364,8 +364,8 @@ public:
 
 private:
   PxColor do_getBackgroundColor() const { return _parent.getBackgroundColor(); }
-  PxColor do_getColor(AIndex pos) const { return _parent.getColor(APoint{_posX, pos}); }
-  void do_setColor(AIndex pos, PxColor color) { _parent.setColor(APoint{_posX, pos}, color); }
+  PxColor do_getColor(AIndex pos) const { return _parent.getColor({_posX, pos}); }
+  void do_setColor(AIndex pos, PxColor color) { _parent.setColor({_posX, pos}, color); }
 
 private:
   PxMatrix &_parent;
@@ -378,7 +378,7 @@ private:
 
 inline PxMatrixPixelProxy PxMatrix::pixel(APoint pos) { return PxMatrixPixelProxy{*this, pos}; }
 
-inline PxMatrixPixelProxy PxMatrix::pixel(AIndex x, AIndex y) { return pixel(APoint{x, y}); }
+inline PxMatrixPixelProxy PxMatrix::pixel(AIndex x, AIndex y) { return pixel({x, y}); }
 
 inline PxMatrixPixelProxy PxMatrix::operator[](APoint pos) { return pixel(pos); }
 
