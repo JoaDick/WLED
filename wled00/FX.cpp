@@ -11052,7 +11052,7 @@ void fx_ColorClouds(FxEnv& env)
       hue = cos8_t(128 + hue / 2);
     }
 
-    PxColor color = rainbowColor(ui, hue, vol);
+    PxColor color = rainbowColor(env, hue, vol);
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
     // Unfortunately this doesn't always work properly when gamma correction for color is enabled.
