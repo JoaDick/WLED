@@ -232,7 +232,7 @@ public:
    * @param env Effect runtime environment.
    * @note Effect implementations shall use this instead of \c SEGPALETTE
    */
-  const CRGBPalette16 &currentPalette(FxEnv &env) { return seg().getCurrentPalette(); }
+  const CRGBPalette16 &currentPalette() { return seg().getCurrentPalette(); }
 
   // ----- effect related methods -----
 
@@ -317,10 +317,10 @@ using EffectFunction = void (*)(FxEnv &env);
  */
 inline PxColor paletteColor(FxEnv &env, uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND)
 {
-  return ColorFromPaletteWLED(env.currentPalette(env), index, brightness, blendType);
+  return ColorFromPaletteWLED(env.currentPalette(), index, brightness, blendType);
 }
 
-/** Get a color based on a spectrum; either rainbow or from selected palette.
+/** Get a color based on a spectrum; either rainbow or from the currently selected palette.
  * When the \e Default palette (0) is selected in the UI, a rainbow color (based on HSV color model)
  * is returned. Otherwise, a color from the currently selected palette is returned.
  * @param env Effect runtime environment.
@@ -782,6 +782,147 @@ private:
 #endif
   uint32_t _call = 0;
 };
+
+//--------------------------------------------------------------------------------------------------
+
+/** Interface for classes that can generate colors based on a given index.
+ * Like color palettes on steroids; just more versatile and extensible through custom implementations.
+ */
+class ColorSource
+{
+public:
+  /** Get color at the given absolute \a index
+   * One full range of the color source's spectrum is represented by \c 0<=index<size
+   */
+  PxColor get(AIndex index) { return do_getColor(index); }
+
+  /** Get color at the given normalized \a index
+   * One full range of the color source's spectrum is represented by \c 0.0<=index<=1.0
+   */
+  PxColor get_N(NIndex index) { return do_getColor(norm2abs(index, size)); }
+
+  /** Size of the color source's spectrum (in pixels).
+   * Higher values stretch the spectrum over a larger range for \c index, lower values squeeze it.
+   */
+  AIndex size;
+
+protected:
+  // no impact on child's copy & move policy
+  ColorSource(const ColorSource &) = default;
+  ColorSource(ColorSource &&) = default;
+  ColorSource &operator=(const ColorSource &) = default;
+  ColorSource &operator=(ColorSource &&) = default;
+  ~ColorSource() = default;
+
+  /** Constructor.
+   * @param size Size of the color source's spectrum (in pixels).
+   */
+  explicit ColorSource(AIndex size_) : size{size_} {}
+
+  /** Get color at the given absolute \a index
+   * @see constrainedIndex()
+   */
+  virtual PxColor do_getColor(AIndex index) = 0;
+
+  /** Helper function for constraining \a index
+   * Always returns \c 0...(size-1) - even for negative indices (mathematical modulo).
+   */
+  AIndex constrainedIndex(AIndex index) const { return ((index % size) + size) % size; }
+};
+
+/** A ColorSource that creates colors based on rainbow or from currently selected palette.
+ * When the \e Default palette (0) is selected in the UI, a rainbow color (based on HSV color model)
+ * is created. Otherwise, the color is created based on the currently selected palette.
+ * Like rainbowColor() on steroids.
+ */
+class RainbowColorSource final : public ColorSource
+{
+public:
+  // no copy & move - this class is intended to be used as temporary object on the stack
+  RainbowColorSource(const RainbowColorSource &) = delete;
+  RainbowColorSource &operator=(const RainbowColorSource &) = delete;
+
+  /** Constructor.
+   * @param env Effect runtime environment.
+   * @param size Size of the color spectrum (in pixels).
+   *             0 uses the entire segment for one full range of the rainpow (or palette).
+   */
+  explicit RainbowColorSource(FxEnv &env, AIndex size = 0)
+      : ColorSource(size ? size : env.seglen()), _env{env} {}
+
+  /// Brightness of the color.
+  uint8_t vol = 255;
+
+  /// Color interpolation option for accessing the currently selected palette.
+  TBlendType blendType = LINEARBLEND;
+
+  /// When a color is requested, this offset is added to the user's given index.
+  AIndex offset = 0;
+
+  /** Set the \c offset (normalized version).
+   * A value of 0.5 for example sets the \c offset to half the spectrum's size.
+   */
+  void setOffset_N(NIndex offset) { this->offset = norm2abs(offset, size); }
+
+private:
+  /// @see ColorSource::do_getColor()
+  PxColor do_getColor(AIndex index) override
+  {
+    const uint8_t hue = map(constrainedIndex(index + offset), 0, size, 0, 255);
+    return rainbowColor(_env, hue, vol, blendType);
+  }
+
+  FxEnv &_env;
+};
+
+//--------------------------------------------------------------------------------------------------
+
+/** Draw a line between absolute positions (direction doesn't matter).
+ * @param pxa Draw on that pixel array.
+ * @param firstPos First pixel of the line.
+ * @param lastPos  Last pixel of the line.
+ * @param colorSource Get pixel color from there; the index is incremented by one for every pixel.
+ */
+void colorLine_abs(PxArray &pxa, AIndex firstPos, AIndex lastPos, ColorSource &colorSource);
+
+/** Draw a relative line.
+ * @param pxa Draw on that pixel array.
+ * @param startPos First pixel of the line.
+ * @param length Length of the line.
+ *               Positive values for draw upward the array, negative values draw in the other direction.
+ * @param colorSource Get pixel color from there; the index is incremented by one for every pixel.
+ */
+inline void colorLine_rel(PxArray &pxa, AIndex startPos, int length, ColorSource &colorSource)
+{
+  if (length > 0)
+    colorLine_abs(pxa, startPos, startPos + length - 1, colorSource);
+  else if (length < 0)
+    colorLine_abs(pxa, startPos, startPos + length + 1, colorSource);
+}
+
+/// Similar to colorLine_rel() but draws around the given \a centerPos as middle of the line.
+inline void colorLine_centered(PxArray &pxa, AIndex centerPos, int length, ColorSource &colorSource)
+{
+  colorLine_rel(pxa, centerPos - length / 2, length, colorSource);
+}
+
+/// Like colorLine_rel() - but with normalized positions.
+inline void colorLine_rel_N(PxArray &pxa, NIndex startPos, float length, ColorSource &colorSource)
+{
+  colorLine_rel(pxa, pxa.toAbs(startPos), pxa.toAbs(length), colorSource);
+}
+
+/// Like colorLine_abs() - but with normalized positions.
+inline void colorLine_abs_N(PxArray &pxa, NIndex firstPos, NIndex lastPos, ColorSource &colorSource)
+{
+  colorLine_abs(pxa, pxa.toAbs(firstPos), pxa.toAbs(lastPos), colorSource);
+}
+
+/// Like colorLine_centered() - but with normalized positions.
+inline void colorLine_centered_N(PxArray &pxa, NIndex centerPos, float length, ColorSource &colorSource)
+{
+  colorLine_rel_N(pxa, centerPos - length / 2.0f, length, colorSource);
+}
 
 //--------------------------------------------------------------------------------------------------
 

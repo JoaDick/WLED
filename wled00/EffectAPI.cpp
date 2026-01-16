@@ -88,6 +88,13 @@ void fx_broken(FxEnv &env)
   PxArray &leds = env.pxArray();
   leds.clear();
 
+#if (1)
+  const auto p1 = beatsin16_t(13 << 6) / 65535.0f * 1.2f - 0.1f;
+  const auto p2 = beatsin16_t(11 << 6) / 65535.0f * 1.2f - 0.1f;
+  RainbowColorSource colorSource{env};
+  colorSource.setOffset_N(p1);
+  colorLine_abs_N(leds, p1, p2, colorSource);
+#else
   const auto p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
   const auto p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
 
@@ -97,6 +104,7 @@ void fx_broken(FxEnv &env)
   const PxColor c2 = ~c1.raw & 0x00FFFFFF;
   leds[p1] = c2;
   leds[p2] = c2;
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -254,5 +262,17 @@ ParticleSystem2D *SegEnv::initPS_2D(const uint32_t requestedsources,
   return _partSys_2D;
 }
 #endif
+
+//--------------------------------------------------------------------------------------------------
+
+void colorLine_abs(PxArray &pxa, AIndex firstPos, AIndex lastPos, ColorSource &colorSource)
+{
+  // We must NOT constrain! Off-strip positions have to be treated like regular positions.
+  AIndex colorIndex = 0;
+  while (firstPos < lastPos)
+    pxa.setColor(firstPos++, colorSource.get(colorIndex++));
+  while (firstPos >= lastPos)
+    pxa.setColor(firstPos--, colorSource.get(colorIndex++));
+}
 
 //--------------------------------------------------------------------------------------------------

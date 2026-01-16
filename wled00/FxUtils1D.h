@@ -23,6 +23,16 @@ using AIndex = int;
  */
 using NIndex = float;
 
+/** Convert the given normalized position into its corresponding absolute position.
+ * @param pos Normalized pixel position to convert
+ * @param size Size of e.g. the corresponding pixel array
+ *     \c 0.0 = first pixel (i.e. start of pixel array) --> absolute position = \c 0
+ *     \c 1.0 = last pixel  (i.e. end of pixel array)   --> absolute position = \c size-1
+ * @note This function includes a small margin (1/2 pixel) below 0.0 and above 1.0 which is also
+ * mapped into the valid pixel array range.
+ */
+inline AIndex norm2abs(NIndex pos, AIndex size) { return round(pos * (size - 1)); }
+
 //--------------------------------------------------------------------------------------------------
 
 class PxArrayPixelProxy;
@@ -74,11 +84,11 @@ public:
   // ----- methods using normalized pixel positions -----
 
   /** Convert the given normalized position into its corresponding absolute position.
-   * @param pos Normalized pixel position
+   * @param pos Normalized pixel position to convert
    *     \c 0.0 = first pixel (i.e. start of pixel array) --> absolute position = \c 0
    *     \c 1.0 = last pixel  (i.e. end of pixel array)   --> absolute position = \c size()-1
    */
-  AIndex toAbs(NIndex pos) const { return round(pos * (_size - 1)); }
+  AIndex toAbs(NIndex pos) const { return norm2abs(pos, _size); }
 
   /// Like setColor() - but with normalized position.
   void setColor_N(NIndex pos, PxColor color) { do_setColor(toAbs(pos), color); }
@@ -196,6 +206,7 @@ protected:
 
   /** Set all pixels within the block from \a firstPos to \a lastPos to the given \a color
    * @note Be aware that the positions may be outside of the the bounds.
+   * @see constrainRange()
    */
   virtual void do_fillBlock(AIndex firstPos, AIndex lastPos, PxColor color);
 
@@ -229,6 +240,12 @@ protected:
 private:
   AIndex _size;
 };
+
+/** Constrain (and reorder) the given \a firstPos and \a lastPos to be within the bounds of \a pxa
+ * @retval \a true Positions are now within bounds: \c 0<=firstPos<=lastPos<=pxa.size()-1
+ * @retval \a false Both positions are out of bounds
+ */
+bool constrainRange(const PxArray &pxa, AIndex &firstPos, AIndex &lastPos);
 
 //--------------------------------------------------------------------------------------------------
 
@@ -295,13 +312,20 @@ private:
 // line functions
 //--------------------------------------------------------------------------------------------------
 
-/** Draw a line in the given \a color, from the given \a firstPos to \a lastPos
- * Direction doesn't matter; \a lastPos may be smaller than \a firstPos
+/** Draw a line between absolute positions (direction doesn't matter).
+ * @param pxa Draw on that pixel array.
+ * @param firstPos First pixel of the line.
+ * @param lastPos  Last pixel of the line.
+ * @param color The line's color.
  */
 inline void line_abs(PxArray &pxa, AIndex firstPos, AIndex lastPos, PxColor color) { pxa.fillBlock(firstPos, lastPos, color); }
 
-/** Draw a line in the given \a color, with the given \a length and starting at \a startPos.
- * Positive values for \a length draw upward the array, negative values draw in the other direction.
+/** Draw a relative line.
+ * @param pxa Draw on that pixel array.
+ * @param startPos First pixel of the line.
+ * @param length Length of the line.
+ *               Positive values for draw upward the array, negative values draw in the other direction.
+ * @param color The line's color.
  */
 void line_rel(PxArray &pxa, AIndex startPos, int length, PxColor color);
 

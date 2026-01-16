@@ -24,21 +24,9 @@ void PxArray::copyFrom(const PxArray &other)
 
 void PxArray::do_fillBlock(AIndex firstPos, AIndex lastPos, PxColor color)
 {
-  if (firstPos > lastPos)
-    std::swap(firstPos, lastPos);
-
-  if (firstPos >= size())
-    return;
-  if (lastPos < 0)
-    return;
-
-  if (firstPos < 0)
-    firstPos = 0;
-  if (lastPos >= size())
-    lastPos = size() - 1;
-
-  while (firstPos <= lastPos)
-    setColor(firstPos++, color);
+  if (constrainRange(*this, firstPos, lastPos))
+    while (firstPos <= lastPos)
+      setColor(firstPos++, color);
 }
 
 void PxArray::do_fastFade(uint8_t fadeBy)
@@ -98,6 +86,24 @@ void PxArray::do_blur(uint8_t blurAmount, bool smear)
 {
   // implement me
   // see Segment::blur()
+}
+
+bool constrainRange(const PxArray &pxa, AIndex &firstPos, AIndex &lastPos)
+{
+  if (firstPos > lastPos)
+    std::swap(firstPos, lastPos);
+
+  if (firstPos >= pxa.size())
+    return false;
+  if (lastPos < 0)
+    return false;
+
+  if (firstPos < 0)
+    firstPos = 0;
+  if (lastPos >= pxa.size())
+    lastPos = pxa.size() - 1;
+
+  return true;
 }
 
 //--------------------------------------------------------------------------------------------------

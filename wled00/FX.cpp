@@ -11067,8 +11067,35 @@ void fx_ColorClouds(FxEnv& env)
 static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
 
-/// Demo example with a WU pixel.
-void fx_WU_Demo(FxEnv& env)
+/// FX example for drawing a line.
+void fx_Example_Line(FxEnv& env)
+{
+  auto& ui = env.ui();
+  auto& leds = env.pxArray();
+
+  const NIndex firstPixel   = ui.speed() / 255.0f;         // Range: 0.0 ... 1.0
+  const NIndex lastPixel    = ui.intensity() / 255.0f;     // Range: 0.0 ... 1.0
+  const AIndex csSize_raw   = ui.custom1();                // Range: 0 ... 255
+  const AIndex csOffset_raw = (255 - ui.custom2()) - 128;  // Range: -128 ... 127
+  const AIndex csSize = (csSize_raw * leds.size()) / 256;
+  const AIndex csOffset = (csOffset_raw * leds.size()) / 256;
+
+  leds.clear();
+  if(ui.check1()) {
+    RainbowColorSource colorSource{env, csSize};
+    colorSource.offset = csOffset;
+    colorSource.blendType = ui.check3() ? LINEARBLEND : LINEARBLEND_NOWRAP;
+    colorLine_abs_N(leds, firstPixel, lastPixel, colorSource);
+  }
+  else {
+    line_abs_N(leds, firstPixel, lastPixel, ui.fxColor());
+  }
+}
+static const char _data_FX_EXAMPLE_LINE[] PROGMEM = "1 Ex: Line@First,Last,Size,Offset,,Palette,,Wrap;;!;;sx=64,ix=191,c1=128,c2=128,o1=1,o3=1,pal=0";
+
+
+/// FX example with a WU pixel.
+void fx_Example_WU_Pixel(FxEnv& env)
 {
   auto& ui = env.ui();
   auto& segenv = env.segenv();
@@ -11102,14 +11129,11 @@ void fx_WU_Demo(FxEnv& env)
   else
     wu_pixel_N(matrix, pos, ui.fxColor());
 }
-static const char _data_FX_MODE_WU_PIXEL_DEMO[] PROGMEM = "1 WU Demo FX@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
+static const char _data_FX_EXAMPLE_WU_PIXEL[] PROGMEM = "1 Ex: WU Pixel@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
 
 
-//////////////////////////////////////////////////////////////////////////////////////////
-// backup of converted effects examples
-
-/// Demo example for darwing text.
-void fx_Text_Demo(FxEnv& env)
+/// FX example for darwing text.
+void fx_Example_Text(FxEnv& env)
 {
   auto& ui = env.ui();
   auto& matrix = env.pxMatrix();
@@ -11183,8 +11207,11 @@ void fx_Text_Demo(FxEnv& env)
   }
   drawCharacter(matrix, letter, {x_0, y_0}, letterWidth, letterHeight, ui.fxColor(), ui.bgColor());
 }
-static const char _data_FX_MODE_TEXT_DEMO[] PROGMEM = "1 Text Demo FX@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
+static const char _data_FX_EXAMPLE_TEXT[] PROGMEM = "1 Ex: Text@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// backup of converted effects examples
 
 /*
  * Blink several LEDs in random colors on, reset, repeat.
@@ -11695,8 +11722,9 @@ addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
 addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
 addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
 addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
-addEffectFunction<fx_WU_Demo>(*this, 255, _data_FX_MODE_WU_PIXEL_DEMO);
-addEffectFunction<fx_Text_Demo>(*this, 255, _data_FX_MODE_TEXT_DEMO);
+addEffectFunction<fx_Example_Line>(*this, 255, _data_FX_EXAMPLE_LINE);
+addEffectFunction<fx_Example_WU_Pixel>(*this, 255, _data_FX_EXAMPLE_WU_PIXEL);
+addEffectFunction<fx_Example_Text>(*this, 255, _data_FX_EXAMPLE_TEXT);
 addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
 
 addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);
