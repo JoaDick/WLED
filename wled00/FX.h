@@ -18,8 +18,8 @@
 
 #include <vector>
 #include "wled.h"
-#include "EffectHandle.h"
-#include "PxColor.h"
+#include "EffectAPI/EffectHandle.h"
+#include "EffectAPI/PxColor.h"
 
 #ifdef WLED_DEBUG
   // enable additional debug output
@@ -1077,6 +1077,6 @@ extern const char JSON_palette_names[];
 
 // This include at the end of the file is a bit unorthodox, but this is the only possibility to
 // keep that code in a separate file (instead of placing it directly here).
-#include "EffectAdapter.h"
+#include "EffectAPI/EffectAdapter.h"
 
 #endif
