@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "FX.h"
+#include "PxColor.h"
 
 //--------------------------------------------------------------------------------------------------
 class EffectBase;
@@ -41,7 +42,7 @@ public:
 
   // ----- slider -----
 
-  /** Get current setting of the 'Speed" slider (with Clock icon).
+  /** Get current setting of the 'Speed" slider (with Stopwatch icon).
    * metadata-string: \c sx=0-255
    * @note Effect implementations shall use this instead of \c SEGMENT.speed
    */
@@ -99,23 +100,23 @@ public:
   /** Get currently selected effect/foreground color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(0)
    */
-  uint32_t fxColor() const { return color(0); }
+  PxColor fxColor() const { return color(0); }
 
   /** Get currently selected background color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(1)
    */
-  uint32_t bgColor() const { return color(1); }
+  PxColor bgColor() const { return color(1); }
 
   /** Get currently selected extra color.
    * @note Effect implementations shall use this instead of \c SEGCOLOR(2)
    */
-  uint32_t csColor() const { return color(2); }
+  PxColor csColor() const { return color(2); }
 
   /** Get the desired color \a x
    * 0=fg / 1=bg / 2=aux / other=black
    * @note Effect implementations shall use this instead of \c SEGCOLOR(n)
    */
-  uint32_t color(unsigned x) const { return _seg->getCurrentColor(x); }
+  PxColor color(unsigned x) const { return _seg->getCurrentColor(x); }
 
   /** Get number of currently selected color palette.
    * metadata-string: \c pal=0-255
@@ -192,17 +193,17 @@ public:
   /** Get the length of the segment.
    * @note Effect implementations shall use this instead of \c SEGLEN
    */
-  uint16_t seglen() const { return _seglen; }
+  int seglen() const { return _seglen; }
 
   /** Get the width of the segment.
    * @note Effect implementations shall use this instead of \c SEG_W
    */
-  uint16_t segW() const { return _segW; }
+  int segW() const { return _segW; }
 
   /** Get the height of the segment.
    * @note Effect implementations shall use this instead of \c SEG_H
    */
-  uint16_t segH() const { return _segH; }
+  int segH() const { return _segH; }
 
   /** Check if the segment is configured as a 2D setup.
    * @note Effect implementations shall use this instead of \c SEGMENT.is2D()
@@ -221,10 +222,9 @@ public:
   SegEnv &segenv() { return *_segenv; }
 
   /** Get currently selected color palette.
-   * @param env Effect runtime environment.
    * @note Effect implementations shall use this instead of \c SEGPALETTE
    */
-  const CRGBPalette16 &currentPalette(FxEnv &env) { return seg().getCurrentPalette(); }
+  const CRGBPalette16 &currentPalette() { return seg().getCurrentPalette(); }
 
   // ----- effect related methods -----
 
@@ -286,9 +286,9 @@ private:
   uint32_t _now = 0;
   uint32_t _age = 0;
   uint32_t _deltaT = 0;
-  uint16_t _seglen = 0;
-  uint16_t _segW = 0;
-  uint16_t _segH = 0;
+  int _seglen = 0;
+  int _segW = 0;
+  int _segH = 0;
   uint16_t _frametime = 0;
   bool _is2D = false;
 };
@@ -309,12 +309,12 @@ using EffectFunction = void (*)(FxEnv &env);
  * - \c LINEARBLEND = Linear interpolation between palette entries, with wrap-around from end to the beginning again.
  * - \c LINEARBLEND_NOWRAP = Linear interpolation between palette entries, but no wrap-around.
  */
-inline uint32_t paletteColor(FxEnv &env, uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND)
+inline PxColor paletteColor(FxEnv &env, uint8_t index, uint8_t brightness = 255, TBlendType blendType = LINEARBLEND)
 {
-  return ColorFromPaletteWLED(env.currentPalette(env), index, brightness, blendType);
+  return ColorFromPaletteWLED(env.currentPalette(), index, brightness, blendType);
 }
 
-/** Get a color based on a spectrum; either rainbow or from selected palette.
+/** Get a color based on a spectrum; either rainbow or from the currently selected palette.
  * When the \e Default palette (0) is selected in the UI, a rainbow color (based on HSV color model)
  * is returned. Otherwise, a color from the currently selected palette is returned.
  * @param env Effect runtime environment.
@@ -327,7 +327,7 @@ inline uint32_t paletteColor(FxEnv &env, uint8_t index, uint8_t brightness = 255
  * @note Effect implementations may use this as alternative to \c color_wheel()
  * The difference to that function is that \a vol and \a blendType can be specified by the caller.
  */
-inline uint32_t rainbowColor(FxEnv &env, uint8_t hue, uint8_t vol = 255, TBlendType blendType = LINEARBLEND)
+inline PxColor rainbowColor(FxEnv &env, uint8_t hue, uint8_t vol = 255, TBlendType blendType = LINEARBLEND)
 {
   if (env.ui().paletteNr())
     return paletteColor(env, hue, vol, blendType);
@@ -347,7 +347,7 @@ inline uint32_t rainbowColor(FxEnv &env, uint8_t hue, uint8_t vol = 255, TBlendT
  * @param pos Position in the color wheel.
  * @note Effect implementations shall use this instead of \c SEGMENT.color_wheel()
  */
-inline uint32_t color_wheel(FxEnv &env, uint8_t pos)
+inline PxColor color_wheel(FxEnv &env, uint8_t pos)
 {
   return env.seg().color_wheel(pos);
 }
@@ -366,7 +366,7 @@ inline uint32_t color_wheel(FxEnv &env, uint8_t pos)
  * @param pbri  Value to scale down the brightness of the returned color by. Default is 255, meaning full brightness.
  * @note Effect implementations shall use this instead of \c SEGMENT.color_from_palette()
  */
-inline uint32_t color_from_palette(FxEnv &env, uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri = 255)
+inline PxColor color_from_palette(FxEnv &env, uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri = 255)
 {
   return env.seg().color_from_palette(i, mapping, moving, mcol, pbri);
 }

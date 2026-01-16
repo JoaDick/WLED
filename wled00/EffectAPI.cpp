@@ -26,6 +26,8 @@ uint8_t FxConfig::paletteBlend() const
 
   ... or from wled.h
   WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
+
+  --> see https://github.com/wled/WLED/issues/5295
   */
 
 #if (0)
@@ -63,15 +65,9 @@ uint16_t FxEnv::showEffect(uint32_t now)
 
 bool FxEnv::updateSegment(Segment &seg, SegEnv &segenv)
 {
-#if (1)
-  const uint16_t new_seglen = seg.virtualLength();
-  const uint16_t new_segW = seg.virtualWidth();
-  const uint16_t new_segH = seg.virtualHeight();
-#else
   const uint16_t new_seglen = seg.vLength();
   const uint16_t new_segW = seg.vWidth();
   const uint16_t new_segH = seg.vHeight();
-#endif
   const bool new_is2D = seg.is2D();
 
   const bool dimensionChanged = (_seglen != new_seglen) ||
@@ -100,18 +96,19 @@ void FxEnv::updateTime(uint32_t now)
 void fx_broken(FxEnv &env)
 {
   Segment &seg = env.seg();
+  seg.clear();
 
-  const uint32_t c1 = seg.getCurrentColor(0);
-  const uint32_t c2 = ~c1 & 0x00FFFFFF;
-  const uint16_t p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
-  const uint16_t p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
+  const int p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
+  const int p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
 
-  seg.fill(0);
+  const PxColor c1 = env.ui().fxColor();
   auto tmp = p1;
   while (tmp < p2)
     seg.setPixelColor(tmp++, c1);
   while (tmp > p2)
     seg.setPixelColor(tmp--, c1);
+
+  const PxColor c2 = ~c1.raw & 0x00FFFFFF;
   seg.setPixelColor(p1, c2);
   seg.setPixelColor(p2, c2);
 }
@@ -123,7 +120,7 @@ EffectBase::EffectBase(FxSetup &fxs)
 {
   FxEnv &env = fxs.env();
   Segment &seg = env.seg();
-  seg.fill(0);
+  seg.clear();
 }
 
 void EffectBase::show(FxEnv &env)
