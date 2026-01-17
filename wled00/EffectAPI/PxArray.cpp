@@ -6,7 +6,7 @@
 #include <algorithm>
 
 #include "wled.h"
-#include "FxUtils1D.h"
+#include "PxArray.h"
 
 //--------------------------------------------------------------------------------------------------
 

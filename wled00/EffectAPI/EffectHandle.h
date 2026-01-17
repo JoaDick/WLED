@@ -1,7 +1,7 @@
 /**
  * Interfaces and helper classes for class-based WLED effects.
  *
- * This headerfile provides a handle for the Segments to manage their corresponding effect instance.
+ * @file This file provides a handle for the Segment to manage its corresponding effect instance.
  *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
@@ -34,10 +34,16 @@ struct EffectInitData
 class EffectHandle
 {
 public:
+  EffectHandle(const EffectHandle &other);
+  EffectHandle(EffectHandle &&other) noexcept;
+  EffectHandle &operator=(const EffectHandle &other);
+  EffectHandle &operator=(EffectHandle &&other) noexcept;
+  ~EffectHandle();
+
   /** Constructor.
    * @param seg The Segment where this handle lives inside.
    */
-  explicit EffectHandle(Segment &seg) : _fxData{&seg, 0} {}
+  explicit EffectHandle(Segment &seg);
 
   /** Create an instance of effect class type \a FX_CLASS inside this handle.
    * @tparam FX_CLASS Class type of concrete effect implementation. Must be a child of EffectBase.
@@ -73,7 +79,7 @@ public:
   bool onSegmentChanges();
 
   /// Delete this handle's current effect instance (if any).
-  void reset() { _fxAdapter.reset(); }
+  void reset();
 
   /** Try to clone the effect instance from \a src into this handle.
    * @note Be aware that cloning might fail, resulting in an empty handle.
@@ -83,13 +89,13 @@ public:
   /** Try to clone this handle's effect instance into \a dest
    * @note Be aware that cloning might fail, resulting in an empty handle.
    */
-  void cloneEffectTo(EffectHandle &dest) const { dest.cloneEffectFrom(*this); }
+  void cloneEffectTo(EffectHandle &dest) const;
 
   /// Transfer the effect instance from \a src to this handle.
   void moveEffectFrom(EffectHandle &src) noexcept;
 
   /// Transfer this handle's effect instance to \a dest
-  void moveEffectTo(EffectHandle &dest) noexcept { dest.moveEffectFrom(*this); }
+  void moveEffectTo(EffectHandle &dest) noexcept;
 
   /// Swaps this handle's effect instance with the one of \a other
   void swap(EffectHandle &other) noexcept;
@@ -111,19 +117,6 @@ public:
    * @param newSeg The moved-to Segment.
    */
   void adjustAfterRawMove(Segment &newSeg);
-
-  EffectHandle(const EffectHandle &other) { cloneEffectFrom(other); }
-  EffectHandle(EffectHandle &&other) noexcept { moveEffectFrom(other); }
-  EffectHandle &operator=(const EffectHandle &other)
-  {
-    cloneEffectFrom(other);
-    return *this;
-  }
-  EffectHandle &operator=(EffectHandle &&other) noexcept
-  {
-    moveEffectFrom(other);
-    return *this;
-  }
 
 private:
   void updateSegment(Segment &seg);

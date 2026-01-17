@@ -1,7 +1,7 @@
 /**
  * Interfaces and helper classes for class-based WLED effects.
  *
- * Pixel array and utilities for rendering 1D effects.
+ * @file Interface of a pixel array for rendering 1D effects.
  *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
@@ -34,7 +34,6 @@ using NIndex = float;
 inline AIndex norm2abs(NIndex pos, AIndex size) { return round(pos * (size - 1)); }
 
 //--------------------------------------------------------------------------------------------------
-
 class PxArrayPixelProxy;
 
 /** Interface of a pixel array for rendering 1D effects.
@@ -309,41 +308,7 @@ private:
 };
 
 //--------------------------------------------------------------------------------------------------
-// line functions
-//--------------------------------------------------------------------------------------------------
-
-/** Draw a line between absolute positions (direction doesn't matter).
- * @param pxa Draw on that pixel array.
- * @param firstPos First pixel of the line.
- * @param lastPos  Last pixel of the line.
- * @param color The line's color.
- */
-inline void line_abs(PxArray &pxa, AIndex firstPos, AIndex lastPos, PxColor color) { pxa.fillBlock(firstPos, lastPos, color); }
-
-/** Draw a relative line.
- * @param pxa Draw on that pixel array.
- * @param startPos First pixel of the line.
- * @param length Length of the line.
- *               Positive values for draw upward the array, negative values draw in the other direction.
- * @param color The line's color.
- */
-void line_rel(PxArray &pxa, AIndex startPos, int length, PxColor color);
-
-/// Similar to line_rel() but draws around the given \a centerPos as middle of the line.
-inline void line_centered(PxArray &pxa, AIndex centerPos, int length, PxColor color) { line_rel(pxa, centerPos - length / 2, length, color); }
-
-/// Like line_rel() - but with normalized positions.
-inline void line_rel_N(PxArray &pxa, NIndex startPos, float length, PxColor color) { line_rel(pxa, pxa.toAbs(startPos), pxa.toAbs(length), color); }
-
-/// Like line_abs() - but with normalized positions.
-inline void line_abs_N(PxArray &pxa, NIndex firstPos, NIndex lastPos, PxColor color) { line_abs(pxa, pxa.toAbs(firstPos), pxa.toAbs(lastPos), color); }
-
-/// Like line_centered() - but with normalized positions.
-inline void line_centered_N(PxArray &pxa, NIndex centerPos, float length, PxColor color) { line_rel_N(pxa, centerPos - length / 2.0f, length, color); }
-
-//--------------------------------------------------------------------------------------------------
 // Just some inline method implementations below - nothing more to see...
-//--------------------------------------------------------------------------------------------------
 
 inline PxArrayPixelProxy PxArray::pixel(AIndex pos) { return PxArrayPixelProxy{*this, pos}; }
 
@@ -356,15 +321,5 @@ inline void PxArray::do_fadeToBlackBy(uint8_t fadeBy) { do_fade(fadeBy, false); 
 inline void PxArray::do_fadeLightBy(uint8_t fadeBy) { do_fade(fadeBy, true); }
 
 inline void PxArray::do_fadeToBackgroundBy(uint8_t fadeBy) { do_fadeToColorBy(getBackgroundColor(), fadeBy); }
-
-//--------------------------------------------------------------------------------------------------
-
-inline void line_rel(PxArray &pxa, AIndex startPos, int length, PxColor color)
-{
-  if (length > 0)
-    line_abs(pxa, startPos, startPos + length - 1, color);
-  else if (length < 0)
-    line_abs(pxa, startPos, startPos + length + 1, color);
-}
 
 //--------------------------------------------------------------------------------------------------

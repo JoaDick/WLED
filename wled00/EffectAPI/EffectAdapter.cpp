@@ -11,8 +11,6 @@
 
 bool EffectController::updateSegment(Segment &seg)
 {
-  SegEnv::updateSegment(seg);
-
   const bool dimensionChanged = FxEnv::updateSegment(seg, *this);
   if ((dimensionChanged == true) && (FxProperties::_isSupported_segmentResize == false))
   {

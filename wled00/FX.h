@@ -18,7 +18,8 @@
 
 #include <vector>
 #include "wled.h"
-#include "EffectHandle.h"
+#include "EffectAPI/EffectHandle.h"
+#include "EffectAPI/PxColor.h"
 
 #ifdef WLED_DEBUG
   // enable additional debug output
@@ -708,7 +709,8 @@ class Segment {
     uint16_t virtualLength() const;
     uint16_t maxMappingLength() const;
     [[gnu::hot]] void setPixelColor(int n, uint32_t c) const; // set relative pixel within segment with color
-    inline void setPixelColor(unsigned n, uint32_t c) const                    { setPixelColor(int(n), c); }
+    inline void setPixelColor(int n, CRGBW c) const                            { setPixelColor(n, c.color32); }
+    inline void setPixelColor(int n, PxColor c) const                          { setPixelColor(n, c.raw); }
     inline void setPixelColor(int n, byte r, byte g, byte b, byte w = 0) const { setPixelColor(n, RGBW32(r,g,b,w)); }
     inline void setPixelColor(int n, CRGB c) const                             { setPixelColor(n, RGBW32(c.r,c.g,c.b,0)); }
     void setRawPixelColor(int i, uint32_t col) const                           { if (i >= 0 && i < length()) setPixelColorRaw(i,col); }
@@ -1072,9 +1074,5 @@ class WS2812FX {
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
-
-// This include at the end of the file is a bit unorthodox, but this is the only possibility to
-// keep that code in a separate file (instead of placing it directly here).
-#include "EffectAdapter.h"
 
 #endif

@@ -1,7 +1,7 @@
 /**
  * Interfaces and helper classes for class-based WLED effects.
  *
- * Pixel matrix and utilities for rendering 2D effects.
+ * @file Interface of a pixel matrix for rendering 2D effects.
  *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
@@ -10,7 +10,7 @@
 #pragma once
 
 #include "PxColor.h"
-#include "FxUtils1D.h"
+#include "PxArray.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -37,7 +37,6 @@ struct NPoint
 };
 
 //--------------------------------------------------------------------------------------------------
-
 class PxMatrixPixelProxy;
 class PxMatrixRow;
 class PxMatrixColumn;
@@ -330,6 +329,8 @@ private:
   const APoint _pos;
 };
 
+//--------------------------------------------------------------------------------------------------
+
 /** A proxy object that is representing one specific row of a PxMatrix.
  * Can be used like a PxArray.
  * @see PxMatrix::getRow()
@@ -350,6 +351,8 @@ private:
   PxMatrix &_parent;
   const AIndex _posY;
 };
+
+//--------------------------------------------------------------------------------------------------
 
 /** A proxy object that is representing one specific column of a PxMatrix.
  * Can be used like a PxArray.
@@ -374,7 +377,6 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 // Just some inline method implementations below - nothing more to see...
-//--------------------------------------------------------------------------------------------------
 
 inline PxMatrixPixelProxy PxMatrix::pixel(APoint pos) { return PxMatrixPixelProxy{*this, pos}; }
 

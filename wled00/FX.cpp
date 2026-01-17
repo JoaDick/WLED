@@ -13,6 +13,7 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
+#include "EffectAPI/EffectAPI.h"
 
 #define EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 
@@ -682,7 +683,8 @@ public:
 private:
   void showEffect(FxEnv &env) override { env.setFrametime(mode_twinkle()); }
 
-// ----- start of the unmodified effect function -----
+// This strategy can be used as starting point for migrating a mode-function into an effect class.
+// ----- start of the unmodified mode-function -----
 uint16_t mode_twinkle(void) {
   SEGMENT.fade_out(224);
 
@@ -712,9 +714,9 @@ uint16_t mode_twinkle(void) {
 
   return FRAMETIME;
 }
-// ----- end of the unmodified effect function -----
+// ----- end of the unmodified mode-function -----
 };
-static const char _data_FX_MODE_TWINKLE[] PROGMEM = "1 Twinkle FX@!,!;!,!;!;;m12=0"; //pixels
+static const char _data_FX_MODE_TWINKLE[] PROGMEM = "!Twinkle@!,!;!,!;!;;m12=0"; //pixels
 
 
 /*
@@ -2409,7 +2411,7 @@ void fx_lake(FxEnv& env) {
     seg.setPixelColor(i, color_from_palette(env, index, false, false, 0, lum));
   }
 }
-static const char _data_FX_MODE_LAKE[] PROGMEM = "1 Lake FX@!;Fx;!";
+static const char _data_FX_MODE_LAKE[] PROGMEM = "!Lake@!;Fx;!";
 
 
 // meteor effect & meteor smooth (merged by @dedehai)
@@ -3778,7 +3780,7 @@ uint16_t mode_starburst(void) {
   return FRAMETIME;
 }
 #undef STARBURST_MAX_FRAG
-static const char _data_FX_MODE_STARBURST[] PROGMEM = "1 Fireworks Starburst FX@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
+static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
 #endif // WLED_PS_DONT_REPLACE_1DFX
 
 #if defined(WLED_PS_DONT_REPLACE_1D_FX) || defined(WLED_PS_DONT_REPLACE_2D_FX)
@@ -4105,7 +4107,7 @@ static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;
 void fx_plasma(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // initialize phases on start
   if (env.isFistFrame()) {
@@ -4121,7 +4123,7 @@ void fx_plasma(FxEnv& env) {
     seg.setPixelColor(i, color_from_palette(env, colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
   }
 }
-static const char _data_FX_MODE_PLASMA[] PROGMEM = "1 Plasma FX@Phase,!;!;!";
+static const char _data_FX_MODE_PLASMA[] PROGMEM = "!Plasma@Phase,!;!;!";
 
 
 /*
@@ -4749,13 +4751,13 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
 void fx_blends(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
-  const unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
+  unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
   uint32_t* pixels;
-  if (!segenv.getFxDataArray(pixels, pixelLen + 1)) return;
+  if (!segenv.getFxDataArray(pixels, pixelLen + 1)) return; //allocation failed
   uint8_t blendSpeed = map(ui.intensity(), 0, UINT8_MAX, 10, 128);
-  unsigned shift = (strip.now * ((ui.speed() >> 3) +1)) >> 8;
+  unsigned shift = (env.now() * ((ui.speed() >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
     pixels[i] = color_blend(pixels[i], color_from_palette(env, shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
@@ -4768,7 +4770,7 @@ void fx_blends(FxEnv& env) {
     if (offset >= pixelLen) offset = 0;
   }
 }
-static const char _data_FX_MODE_BLENDS[] PROGMEM = "1 Blends FX@Shift speed,Blend speed;;!";
+static const char _data_FX_MODE_BLENDS[] PROGMEM = "!Blends@Shift speed,Blend speed;;!";
 
 
 /*
@@ -5013,14 +5015,16 @@ class AuroraWave {
 void fx_aurora(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   const uint16_t wavecount = map(ui.intensity(), 0, 255, 2, W_MAX_COUNT);
-  if(segenv.aux1 != wavecount) segenv.reset();
+  if(segenv.aux1 != wavecount) { segenv.reset(); }
   segenv.aux1 = wavecount;
 
   AuroraWave* waves;
-  if(!segenv.getFxDataArray(waves, wavecount)) return;
+  if(!segenv.getFxDataArray(waves, wavecount)) {
+    return;
+  }
 
   for (int i = 0; i < wavecount; i++) {
     waves[i].update(env.seglen(), ui.speed());
@@ -5031,9 +5035,9 @@ void fx_aurora(FxEnv& env) {
   }
 
   uint8_t backlight = 0; // note: original code used 1, with inverse gamma applied background would never be black
-  if (SEGCOLOR(0)) backlight++;
-  if (SEGCOLOR(1)) backlight++;
-  if (SEGCOLOR(2)) backlight++;
+  if (ui.color(0)) backlight++;
+  if (ui.color(1)) backlight++;
+  if (ui.color(2)) backlight++;
   backlight = gamma8inv(backlight); // preserve backlight when using gamma correction
 
   for (unsigned i = 0; i < env.seglen(); i++) {
@@ -5047,8 +5051,8 @@ void fx_aurora(FxEnv& env) {
     seg.setPixelColor(i, mixedRgb);
   }
 }
-static const char _data_FX_MODE_AURORA[] PROGMEM = "1 Aurora FX@!,!;1,2,3;!;;sx=24,pal=50";
 
+static const char _data_FX_MODE_AURORA[] PROGMEM = "!Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
 // WLED-SR effects
 
@@ -7158,11 +7162,11 @@ typedef struct Plasphase {
 void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
   Plasphase* plasmoip;
-  if(!segenv.getFxData(plasmoip)) return;
+  if(!segenv.getFxData(plasmoip)) return; //allocation failed
 
   um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
@@ -7180,10 +7184,10 @@ void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
     uint8_t colorIndex=thisbright;
     if (volumeSmth * ui.intensity() / 64 < thisbright) {thisbright = 0;}
 
-    seg.addPixelColor(i, color_blend(SEGCOLOR(1), color_from_palette(env, colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
+    seg.addPixelColor(i, color_blend(ui.bgColor(), color_from_palette(env, colorIndex, false, PALETTE_SOLID_WRAP, 0), thisbright));
   }
 } // mode_plasmoid()
-static const char _data_FX_MODE_PLASMOID[] PROGMEM = "1 Plasmoid FX@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
+static const char _data_FX_MODE_PLASMOID[] PROGMEM = "!Plasmoid@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
 //////////////////////
@@ -10297,7 +10301,7 @@ uint16_t mode_particleBalance(void) {
     if (SEGMENT.check3) // random, use perlin noise
       xgravity = ((int16_t)perlin8(SEGENV.aux0) - 128);
     else // sinusoidal
-      xgravity = (int16_t)cos8(SEGENV.aux0) - 128;//((int32_t)(SEGMENT.custom3 << 2) * cos8(SEGENV.aux0)
+      xgravity = (int16_t)cos8_t(SEGENV.aux0) - 128;//((int32_t)(SEGMENT.custom3 << 2) * cos8(SEGENV.aux0)
     // scale the force
     xgravity = (xgravity * ((SEGMENT.custom3+1) << 2)) / 128; // xgravity: -127 to +127
     PartSys->applyForce(xgravity);
@@ -10427,9 +10431,9 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
 void fx_particleStarburst(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
-  auto initPS = [](ParticleSystem1D *PartSys){
+  auto initPS = [](ParticleSystem1D *PartSys) {
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
     PartSys->sources[0].source.ttl = 1; // set initial stanby time
@@ -10437,7 +10441,8 @@ void fx_particleStarburst(FxEnv& env) {
   };
 
   ParticleSystem1D *PartSys;
-  if (!segenv.getParticleSystem(initPS, PartSys, 1, 200, 0, true)) return;
+  if (!env.getParticleSystem(initPS, PartSys, 1, 200, 0, true))
+    return; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10475,7 +10480,7 @@ void fx_particleStarburst(FxEnv& env) {
 
   PartSys->update(); // update and render
 }
-static const char _data_FX_MODE_PS_STARBURST[] PROGMEM = "1 PS Starburst FX@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
+static const char _data_FX_MODE_PS_STARBURST[] PROGMEM = "!PS Starburst@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
 
 /*
   Particle based 1D GEQ effect, each frequency bin gets an emitter, distributed over the strip
@@ -11002,7 +11007,7 @@ void fx_ColorClouds(FxEnv& env)
 {
   FxConfig& ui = env.ui();
   PxArray& leds = env.pxArray();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // Set random start points for clouds and color.
   if(env.isFistFrame()) {
@@ -11064,7 +11069,7 @@ void fx_ColorClouds(FxEnv& env)
     leds.setColor(i, color);
   }
 }
-static const char _data_FX_MODE_COLORCLOUDS_org[] PROGMEM = "1 Color Clouds FX@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "!Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
 
 /// FX example for drawing a line.
@@ -11085,13 +11090,13 @@ void fx_Example_Line(FxEnv& env)
     RainbowColorSource colorSource{env, csSize};
     colorSource.offset = csOffset;
     colorSource.blendType = ui.check3() ? LINEARBLEND : LINEARBLEND_NOWRAP;
-    colorLine_abs_N(leds, firstPixel, lastPixel, colorSource);
+    colorLine_N(leds, firstPixel, lastPixel, colorSource);
   }
   else {
-    line_abs_N(leds, firstPixel, lastPixel, ui.fxColor());
+    line_N(leds, firstPixel, lastPixel, ui.fxColor());
   }
 }
-static const char _data_FX_EXAMPLE_LINE[] PROGMEM = "1 Ex: Line@First,Last,Size,Offset,,Palette,,Wrap;;!;;sx=64,ix=191,c1=128,c2=128,o1=1,o3=1,pal=0";
+static const char _data_FX_EXAMPLE_LINE[] PROGMEM = "Ex: Line@First,Last,Size,Offset,,Palette,,Wrap;;!;;sx=64,ix=191,c1=128,c2=128,o1=1,o3=1,pal=0";
 
 
 /// FX example with a WU pixel.
@@ -11129,7 +11134,7 @@ void fx_Example_WU_Pixel(FxEnv& env)
   else
     wu_pixel_N(matrix, pos, ui.fxColor());
 }
-static const char _data_FX_EXAMPLE_WU_PIXEL[] PROGMEM = "1 Ex: WU Pixel@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
+static const char _data_FX_EXAMPLE_WU_PIXEL[] PROGMEM = "Ex: WU Pixel@Speed X,Speed Y,,,,,Normal Pixel;!;;2;sx=32,ix=32";
 
 
 /// FX example for darwing text.
@@ -11207,7 +11212,7 @@ void fx_Example_Text(FxEnv& env)
   }
   drawCharacter(matrix, letter, {x_0, y_0}, letterWidth, letterHeight, ui.fxColor(), ui.bgColor());
 }
-static const char _data_FX_EXAMPLE_TEXT[] PROGMEM = "1 Ex: Text@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
+static const char _data_FX_EXAMPLE_TEXT[] PROGMEM = "Ex: Text@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -11246,7 +11251,7 @@ uint16_t mode_twinkle(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TWINKLE_org[] PROGMEM = "1 Twinkle org@!,!;!,!;!;;m12=0"; //pixels
+static const char _data_FX_MODE_TWINKLE_org[] PROGMEM = "!Twinkle org@!,!;!,!;!;;m12=0"; //pixels
 
 
 /*
@@ -11270,7 +11275,7 @@ uint16_t mode_plasma(void) {
 
   return FRAMETIME;
 }
-const char _data_FX_MODE_PLASMA_org[] PROGMEM = "1 Plasma org@Phase,!;!;!";
+const char _data_FX_MODE_PLASMA_org[] PROGMEM = "!Plasma org@Phase,!;!;!";
 
 
 /*
@@ -11298,7 +11303,7 @@ uint16_t mode_blends(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_BLENDS_org[] PROGMEM = "1 Blends org@Shift speed,Blend speed;;!";
+static const char _data_FX_MODE_BLENDS_org[] PROGMEM = "!Blends org@Shift speed,Blend speed;;!";
 
 
 uint16_t mode_aurora(void) {
@@ -11336,7 +11341,7 @@ uint16_t mode_aurora(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_AURORA_org[] PROGMEM = "1 Aurora org@!,!;1,2,3;!;;sx=24,pal=50";
+static const char _data_FX_MODE_AURORA_org[] PROGMEM = "!Aurora org@!,!;1,2,3;!;;sx=24,pal=50";
 
 
 uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
@@ -11365,7 +11370,7 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
 
   return FRAMETIME;
 } // mode_plasmoid()
-static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "1 Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
+static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "!Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
@@ -11427,7 +11432,7 @@ uint16_t mode_particleStarburst(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_STARBURST_org[] PROGMEM = "1 PS Starburst org@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
+static const char _data_FX_MODE_PS_STARBURST_org[] PROGMEM = "!PS Starburst org@Chance,Fragments,Size,Blur,Cooling,Gravity,Colorful,Push;,!;!;1;pal=52,sx=150,ix=150,c1=120,c2=0,c3=21";
 #endif
 
 
@@ -11471,8 +11476,8 @@ void WS2812FX::setupEffectData() {
   // now replace all pre-allocated effects
   addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
-  addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
-  addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
+  addModeFunction<mode_blink>(*this, FX_MODE_BLINK, _data_FX_MODE_BLINK);
+  addModeFunction<mode_breath>(*this, FX_MODE_BREATH, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
   addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
@@ -11487,6 +11492,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
+  addEffectClass<FX_Twinkle>(*this, FX_MODE_TWINKLE, _data_FX_MODE_TWINKLE);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
@@ -11494,8 +11500,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_STROBE, &mode_strobe, _data_FX_MODE_STROBE);
   addEffect(FX_MODE_STROBE_RAINBOW, &mode_strobe_rainbow, _data_FX_MODE_STROBE_RAINBOW);
   addEffect(FX_MODE_MULTI_STROBE, &mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
-  addEffect(FX_MODE_BLINK_RAINBOW, &mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
-  addEffect(FX_MODE_ANDROID, &mode_android, _data_FX_MODE_ANDROID);
+  addModeFunction<mode_blink_rainbow>(*this, FX_MODE_BLINK_RAINBOW, _data_FX_MODE_BLINK_RAINBOW);
+  addModeFunction<mode_android>(*this, FX_MODE_ANDROID, _data_FX_MODE_ANDROID);
   addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
   addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
   addEffect(FX_MODE_CHASE_RAINBOW, &mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
@@ -11506,6 +11512,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
+  addEffectFunction<fx_aurora>(*this, FX_MODE_AURORA, _data_FX_MODE_AURORA);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
@@ -11533,14 +11540,14 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
   addEffect(FX_MODE_JUGGLE, &mode_juggle, _data_FX_MODE_JUGGLE);
   addEffect(FX_MODE_PALETTE, &mode_palette, _data_FX_MODE_PALETTE);
-  addEffect(FX_MODE_BPM, &mode_bpm, _data_FX_MODE_BPM);
+  addModeFunction<mode_bpm>(*this, FX_MODE_BPM, _data_FX_MODE_BPM);
   addEffect(FX_MODE_FILLNOISE8, &mode_fillnoise8, _data_FX_MODE_FILLNOISE8);
   addEffect(FX_MODE_NOISE16_1, &mode_noise16_1, _data_FX_MODE_NOISE16_1);
   addEffect(FX_MODE_NOISE16_2, &mode_noise16_2, _data_FX_MODE_NOISE16_2);
   addEffect(FX_MODE_NOISE16_3, &mode_noise16_3, _data_FX_MODE_NOISE16_3);
   addEffect(FX_MODE_NOISE16_4, &mode_noise16_4, _data_FX_MODE_NOISE16_4);
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
-  // addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
+  addEffectFunction<fx_lake>(*this, FX_MODE_LAKE, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
   //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
@@ -11563,16 +11570,17 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
   #ifdef WLED_PS_DONT_REPLACE_1D_FX
   addEffect(FX_MODE_ROLLINGBALLS, &rolling_balls, _data_FX_MODE_ROLLINGBALLS);
-  // addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
+  addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
   addEffect(FX_MODE_DANCING_SHADOWS, &mode_dancing_shadows, _data_FX_MODE_DANCING_SHADOWS);
   #endif
   addEffect(FX_MODE_CANDLE, &mode_candle, _data_FX_MODE_CANDLE);
-  addEffect(FX_MODE_BOUNCINGBALLS, &mode_bouncing_balls, _data_FX_MODE_BOUNCINGBALLS);
+  addModeFunction<mode_bouncing_balls>(*this, FX_MODE_BOUNCINGBALLS, _data_FX_MODE_BOUNCINGBALLS);
   addEffect(FX_MODE_POPCORN, &mode_popcorn, _data_FX_MODE_POPCORN);
   addEffect(FX_MODE_DRIP, &mode_drip, _data_FX_MODE_DRIP);
   addEffect(FX_MODE_SINELON, &mode_sinelon, _data_FX_MODE_SINELON);
   addEffect(FX_MODE_SINELON_DUAL, &mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
   addEffect(FX_MODE_SINELON_RAINBOW, &mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
+  addEffectFunction<fx_plasma>(*this, FX_MODE_PLASMA, _data_FX_MODE_PLASMA);
   addEffect(FX_MODE_PERCENT, &mode_percent, _data_FX_MODE_PERCENT);
   addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
   addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
@@ -11587,6 +11595,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
   addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
+  addEffectFunction<fx_blends>(*this, FX_MODE_BLENDS, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
@@ -11597,6 +11606,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
   addEffect(FX_MODE_MATRIPIX, &mode_matripix, _data_FX_MODE_MATRIPIX);
   addEffect(FX_MODE_GRAVIMETER, &mode_gravimeter, _data_FX_MODE_GRAVIMETER);
+  addEffectFunction<fx_plasmoid>(*this, FX_MODE_PLASMOID, _data_FX_MODE_PLASMOID);
   addEffect(FX_MODE_PUDDLES, &mode_puddles, _data_FX_MODE_PUDDLES);
   addEffect(FX_MODE_MIDNOISE, &mode_midnoise, _data_FX_MODE_MIDNOISE);
   addEffect(FX_MODE_NOISEMETER, &mode_noisemeter, _data_FX_MODE_NOISEMETER);
@@ -11614,7 +11624,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_GRAVCENTRIC, &mode_gravcentric, _data_FX_MODE_GRAVCENTRIC);
   addEffect(FX_MODE_GRAVFREQ, &mode_gravfreq, _data_FX_MODE_GRAVFREQ);
   addEffect(FX_MODE_DJLIGHT, &mode_DJLight, _data_FX_MODE_DJLIGHT);
-  addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
+  addModeFunction<mode_blurz>(*this, FX_MODE_BLURZ, _data_FX_MODE_BLURZ);
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
@@ -11696,6 +11706,7 @@ addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLA
 addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
 addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
 addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
+addEffectFunction<fx_particleStarburst>(*this, FX_MODE_PSSTARBURST, _data_FX_MODE_PS_STARBURST);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
 addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
@@ -11704,33 +11715,20 @@ addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 #ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
-// --- class-based effect examples (originals for comparison) ---
-addEffect(FX_MODE_TWINKLE, mode_twinkle, _data_FX_MODE_TWINKLE_org);
-addEffect(FX_MODE_AURORA, mode_aurora, _data_FX_MODE_AURORA_org);
-addEffect(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA_org);
-addEffect(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS_org);
-addEffect(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
-addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
-#ifndef WLED_DISABLE_PARTICLESYSTEM1D
-addEffect(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
-#endif
-#endif
-
-// --- class-based effect examples ---
-addEffectFunction<fx_lake>(*this, 255, _data_FX_MODE_LAKE);
-addEffectFunction<fx_plasma>(*this, 255, _data_FX_MODE_PLASMA);
-addEffectFunction<fx_blends>(*this, 255, _data_FX_MODE_BLENDS);
-addEffectFunction<fx_aurora>(*this, 255, _data_FX_MODE_AURORA);
-addEffectFunction<fx_plasmoid>(*this, 255, _data_FX_MODE_PLASMOID);
+// --- new class-based effect examples ---
+addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS);
 addEffectFunction<fx_Example_Line>(*this, 255, _data_FX_EXAMPLE_LINE);
-addEffectFunction<fx_Example_WU_Pixel>(*this, 255, _data_FX_EXAMPLE_WU_PIXEL);
 addEffectFunction<fx_Example_Text>(*this, 255, _data_FX_EXAMPLE_TEXT);
-addEffectFunction<fx_broken>(*this, 255, "1 Broken FX");
-
-addEffectClass<FX_Twinkle>(*this, 255, _data_FX_MODE_TWINKLE);
-
-addModeFunction<mode_starburst>(*this, 255, _data_FX_MODE_STARBURST);
+addEffectFunction<fx_Example_WU_Pixel>(*this, 255, _data_FX_EXAMPLE_WU_PIXEL);
+addEffectFunction<fx_broken>(*this, 255, "Broken");
+// --- originals effects for comparison ---
+addEffect(255, mode_twinkle, _data_FX_MODE_TWINKLE_org);
+addEffect(255, mode_aurora, _data_FX_MODE_AURORA_org);
+addEffect(255, mode_plasma, _data_FX_MODE_PLASMA_org);
+addEffect(255, mode_blends, _data_FX_MODE_BLENDS_org);
+addEffect(255, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
-addEffectFunction<fx_particleStarburst>(*this, 255, _data_FX_MODE_PS_STARBURST);
+addEffect(255, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
+#endif
 #endif
 }
