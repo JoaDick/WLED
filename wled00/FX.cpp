@@ -8385,24 +8385,22 @@ static const char _data_FX_MODE_PARTICLEFIREWORKS[] PROGMEM = "PS Fireworks@Laun
   by DedeHai (Damian Schneider)
 */
 #define NUMBEROFSOURCES 1
-uint16_t mode_particlevolcano(void) {
-  ParticleSystem2D *PartSys = nullptr;
+void fx_particlevolcano(FxEnv& env) {
+  FxConfig& ui = env.ui();
+  Segenv& segenv = env.segenv();
+
   PSsettings2D volcanosettings;
   volcanosettings.asByte = 0b00000100; // PS settings for volcano movement: bounceX is enabled
   uint8_t numSprays; // note: so far only one tested but more is possible
-  uint32_t i = 0;
 
-  if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES)) // init, no additional data needed
-      return mode_static(); // allocation failed or not 2D
-
+  auto initPS = [&numSprays](ParticleSystem2D *PartSys) {
     PartSys->setBounceY(true);
     PartSys->setGravity(); // enable with default gforce
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
     PartSys->setMotionBlur(230); // anable motion blur
 
     numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of sprays
-    for (i = 0; i < numSprays; i++) {
+    for (uint32_t i = 0; i < numSprays; i++) {
       PartSys->sources[i].source.hue = hw_random16();
       PartSys->sources[i].source.x = PartSys->maxX / (numSprays + 1) * (i + 1); // distribute evenly
       PartSys->sources[i].maxLife = 300; // lifetime in frames
@@ -8410,25 +8408,24 @@ uint16_t mode_particlevolcano(void) {
       PartSys->sources[i].sourceFlags.collide = true; // seeded particles will collide (if enabled)
       PartSys->sources[i].sourceFlags.perpetual = true; // source never dies
     }
-  }
-  else
-    PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  };
 
-  if (PartSys == nullptr)
-    return mode_static(); // something went wrong, no data!
+  ParticleSystem2D *PartSys;
+  if (!env.getParticleSystem(initPS, PartSys, NUMBEROFSOURCES)) // init, no additional data needed
+      return; // something went wrong, no data!
 
   numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of volcanoes
 
   // change source emitting color from time to time, emit one particle per spray
-  if (SEGMENT.call % (11 - (SEGMENT.intensity / 25)) == 0) { // every nth frame, cycle color and emit particles (and update the sources)
-    for (i = 0; i < numSprays; i++) {
+  if (segenv.call % (11 - (ui.intensity() / 25)) == 0) { // every nth frame, cycle color and emit particles (and update the sources)
+    for (uint32_t i = 0; i < numSprays; i++) {
       PartSys->sources[i].source.y = PS_P_RADIUS + 5; // reset to just above the lower edge that is allowed for bouncing particles, if zero, particles already 'bounce' at start and loose speed.
       PartSys->sources[i].source.vy = 0; //reset speed (so no extra particlesettin is required to keep the source 'afloat')
       PartSys->sources[i].source.hue++; // = hw_random16(); //change hue of spray source (note: random does not look good)
-      PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? (SEGMENT.custom1 >> 2) : -(SEGMENT.custom1 >> 2); // set moving speed but keep the direction given by PS
-      PartSys->sources[i].vy = SEGMENT.speed >> 2; // emitting speed (upwards)
+      PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? (ui.custom1() >> 2) : -(ui.custom1() >> 2); // set moving speed but keep the direction given by PS
+      PartSys->sources[i].vy = ui.speed() >> 2; // emitting speed (upwards)
       PartSys->sources[i].vx = 0;
-      PartSys->sources[i].var = SEGMENT.custom3 >> 1; // emiting variation = nozzle size (custom 3 goes from 0-31)
+      PartSys->sources[i].var = ui.custom3_reduced() >> 1; // emiting variation = nozzle size (custom 3 goes from 0-31)
       PartSys->sprayEmit(PartSys->sources[i]);
       PartSys->setWallHardness(255); // full hardness for source bounce
       PartSys->particleMoveUpdate(PartSys->sources[i].source, PartSys->sources[i].sourceFlags, &volcanosettings); //move the source
@@ -8437,20 +8434,19 @@ uint16_t mode_particlevolcano(void) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setColorByAge(SEGMENT.check1);
-  PartSys->setBounceX(SEGMENT.check2);
-  PartSys->setWallHardness(SEGMENT.custom2);
+  PartSys->setColorByAge(ui.check1());
+  PartSys->setBounceX(ui.check2());
+  PartSys->setWallHardness(ui.custom2());
 
-  if (SEGMENT.check3) // collisions enabled
-    PartSys->enableParticleCollisions(true, SEGMENT.custom2); // enable collisions and set particle collision hardness
+  if (ui.check3()) // collisions enabled
+    PartSys->enableParticleCollisions(true, ui.custom2()); // enable collisions and set particle collision hardness
   else
     PartSys->enableParticleCollisions(false);
 
   PartSys->update(); // update and render
-  return FRAMETIME;
 }
 #undef NUMBEROFSOURCES
-static const char _data_FX_MODE_PARTICLEVOLCANO[] PROGMEM = "PS Volcano@Speed,Intensity,Move,Bounce,Spread,AgeColor,Walls,Collide;;!;2;pal=35,sx=100,ix=190,c1=0,c2=160,c3=6,o1=1";
+static const char _data_FX_MODE_PARTICLEVOLCANO[] PROGMEM = "!PS Volcano@Speed,Intensity,Move,Bounce,Spread,AgeColor,Walls,Collide;;!;2;pal=35,sx=100,ix=190,c1=0,c2=160,c3=6,o1=1";
 
 /*
   Particle Fire
@@ -9271,6 +9267,7 @@ uint16_t mode_particlecenterGEQ(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
+#undef NUMBEROFSOURCES
 static const char _data_FX_MODE_PARTICLECIRCULARGEQ[] PROGMEM = "PS GEQ Nova@Speed,Intensity,Rotation Speed,Color Change,Nozzle,,Direction;;!;2f;pal=13,ix=180,c1=0,c2=0,c3=8";
 
 /*
@@ -10429,7 +10426,6 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
 */
 void fx_particleStarburst(FxEnv& env) {
   FxConfig& ui = env.ui();
-  Segment& seg = env.seg();
   Segenv& segenv = env.segenv();
 
   auto initPS = [](ParticleSystem1D *PartSys) {
@@ -11201,6 +11197,83 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
 static const char _data_FX_MODE_PLASMOID_org[] PROGMEM = "!Plasmoid org@Phase,# of pixels;!,!;!;01v;sx=128,ix=128,m12=0,si=0"; // Pixels, Beatsin
 
 
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
+/*
+  Particle Volcano
+  Particles are sprayed from below, spray moves back and forth if option is set
+  Uses palette for particle color
+  by DedeHai (Damian Schneider)
+*/
+#define NUMBEROFSOURCES 1
+uint16_t mode_particlevolcano(void) {
+  ParticleSystem2D *PartSys = nullptr;
+  PSsettings2D volcanosettings;
+  volcanosettings.asByte = 0b00000100; // PS settings for volcano movement: bounceX is enabled
+  uint8_t numSprays; // note: so far only one tested but more is possible
+  uint32_t i = 0;
+
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES)) // init, no additional data needed
+      return mode_static(); // allocation failed or not 2D
+
+    PartSys->setBounceY(true);
+    PartSys->setGravity(); // enable with default gforce
+    PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
+    PartSys->setMotionBlur(230); // anable motion blur
+
+    numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of sprays
+    for (i = 0; i < numSprays; i++) {
+      PartSys->sources[i].source.hue = hw_random16();
+      PartSys->sources[i].source.x = PartSys->maxX / (numSprays + 1) * (i + 1); // distribute evenly
+      PartSys->sources[i].maxLife = 300; // lifetime in frames
+      PartSys->sources[i].minLife = 250;
+      PartSys->sources[i].sourceFlags.collide = true; // seeded particles will collide (if enabled)
+      PartSys->sources[i].sourceFlags.perpetual = true; // source never dies
+    }
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of volcanoes
+
+  // change source emitting color from time to time, emit one particle per spray
+  if (SEGMENT.call % (11 - (SEGMENT.intensity / 25)) == 0) { // every nth frame, cycle color and emit particles (and update the sources)
+    for (i = 0; i < numSprays; i++) {
+      PartSys->sources[i].source.y = PS_P_RADIUS + 5; // reset to just above the lower edge that is allowed for bouncing particles, if zero, particles already 'bounce' at start and loose speed.
+      PartSys->sources[i].source.vy = 0; //reset speed (so no extra particlesettin is required to keep the source 'afloat')
+      PartSys->sources[i].source.hue++; // = hw_random16(); //change hue of spray source (note: random does not look good)
+      PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? (SEGMENT.custom1 >> 2) : -(SEGMENT.custom1 >> 2); // set moving speed but keep the direction given by PS
+      PartSys->sources[i].vy = SEGMENT.speed >> 2; // emitting speed (upwards)
+      PartSys->sources[i].vx = 0;
+      PartSys->sources[i].var = SEGMENT.custom3 >> 1; // emiting variation = nozzle size (custom 3 goes from 0-31)
+      PartSys->sprayEmit(PartSys->sources[i]);
+      PartSys->setWallHardness(255); // full hardness for source bounce
+      PartSys->particleMoveUpdate(PartSys->sources[i].source, PartSys->sources[i].sourceFlags, &volcanosettings); //move the source
+    }
+  }
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setColorByAge(SEGMENT.check1);
+  PartSys->setBounceX(SEGMENT.check2);
+  PartSys->setWallHardness(SEGMENT.custom2);
+
+  if (SEGMENT.check3) // collisions enabled
+    PartSys->enableParticleCollisions(true, SEGMENT.custom2); // enable collisions and set particle collision hardness
+  else
+    PartSys->enableParticleCollisions(false);
+
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+#undef NUMBEROFSOURCES
+static const char _data_FX_MODE_PARTICLEVOLCANO_org[] PROGMEM = "!PS Volcano org@Speed,Intensity,Move,Bounce,Spread,AgeColor,Walls,Collide;;!;2;pal=35,sx=100,ix=190,c1=0,c2=160,c3=6,o1=1";
+#endif
+
+
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 /*
   Particle Fireworks Starburst replacement (smoother rendering, more settings)
@@ -11505,7 +11578,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
-  addEffect(FX_MODE_PARTICLEVOLCANO, &mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
+  addEffectFunction<fx_particlevolcano>(*this, FX_MODE_PARTICLEVOLCANO, _data_FX_MODE_PARTICLEVOLCANO);
   addEffect(FX_MODE_PARTICLEFIRE, &mode_particlefire, _data_FX_MODE_PARTICLEFIRE);
   addEffect(FX_MODE_PARTICLEFIREWORKS, &mode_particlefireworks, _data_FX_MODE_PARTICLEFIREWORKS);
   addEffect(FX_MODE_PARTICLEVORTEX, &mode_particlevortex, _data_FX_MODE_PARTICLEVORTEX);
@@ -11550,6 +11623,9 @@ addEffect(255, mode_twinkle, _data_FX_MODE_TWINKLE_org);
 addEffect(255, mode_aurora, _data_FX_MODE_AURORA_org);
 addEffect(255, mode_plasma, _data_FX_MODE_PLASMA_org);
 addEffect(255, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
+addEffect(255, mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO_org);
+#endif
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 addEffect(255, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 #endif
