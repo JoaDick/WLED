@@ -8387,7 +8387,6 @@ static const char _data_FX_MODE_PARTICLEFIREWORKS[] PROGMEM = "PS Fireworks@Laun
 #define NUMBEROFSOURCES 1
 void fx_particlevolcano(FxEnv& env) {
   FxConfig& ui = env.ui();
-  Segenv& segenv = env.segenv();
 
   PSsettings2D volcanosettings;
   volcanosettings.asByte = 0b00000100; // PS settings for volcano movement: bounceX is enabled
@@ -8417,7 +8416,7 @@ void fx_particlevolcano(FxEnv& env) {
   numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of volcanoes
 
   // change source emitting color from time to time, emit one particle per spray
-  if (segenv.call % (11 - (ui.intensity() / 25)) == 0) { // every nth frame, cycle color and emit particles (and update the sources)
+  if (env.frameCount() % (11 - (ui.intensity() / 25)) == 0) { // every nth frame, cycle color and emit particles (and update the sources)
     for (uint32_t i = 0; i < numSprays; i++) {
       PartSys->sources[i].source.y = PS_P_RADIUS + 5; // reset to just above the lower edge that is allowed for bouncing particles, if zero, particles already 'bounce' at start and loose speed.
       PartSys->sources[i].source.vy = 0; //reset speed (so no extra particlesettin is required to keep the source 'afloat')
@@ -10069,41 +10068,57 @@ static const char _data_FX_MODE_PS_SPARKLER[] PROGMEM = "PS Sparkler@Move,!,Satu
   Uses palette for particle color
   by DedeHai (Damian Schneider)
 */
-uint16_t mode_particleHourglass(void) {
-  ParticleSystem1D *PartSys = nullptr;
-  constexpr int positionOffset = PS_P_RADIUS_1D / 2;; // resting position offset
-  bool* direction;
-  uint32_t* settingTracker;
-  if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 0, 255, 8, false)) // init
-      return mode_static(); // allocation failed or is single pixel
+class FX_ParticleHourglass : public EffectBase
+{
+  static constexpr int positionOffset = PS_P_RADIUS_1D / 2;; // resting position offset
+  ParticleSystem1D *PartSys;
+  bool direction = false;
+  uint32_t settingTracker = 0;
+  uint32_t step = 0;  // ToDo: give me a better name
+  uint16_t aux0 = 0;  // ToDo: give me a better name
+  uint16_t aux1 = 0;  // ToDo: give me a better name
+
+public:
+  // no copy (because we have a resource as member)
+  FX_ParticleHourglass(const FX_ParticleHourglass &) = delete;
+
+  explicit FX_ParticleHourglass(FxSetup &fxs) : EffectBase(fxs) {
+    if(!fxs.env().getParticleSystem(PartSys, 0, 255))
+      return;
+
     PartSys->setBounce(true);
     PartSys->setWallHardness(100);
   }
-  else
-    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
-  if (PartSys == nullptr)
-    return mode_static(); // something went wrong, no data!
+
+private:
+  // calculate target position depending on direction
+  int32_t calcTargetPos(size_t i) {
+    return PartSys->particleFlags[i].reversegrav
+           ? PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
+           : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
+  }
+
+void showEffect(FxEnv &env) override {
+  FxConfig& ui = env.ui();
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
-  direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
-  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
-  PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
+
+  PartSys->setUsedParticles(1 + ((ui.intensity() * 255) >> 8));
+  PartSys->setMotionBlur(ui.custom2()); // anable motion blur
+  PartSys->setGravity(map(ui.custom3_reduced(), 0, 31, 1, 30));
   PartSys->enableParticleCollisions(true, 64); // hardness value (found by experimentation on different settings)
 
-  uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
+  uint32_t colormode = ui.custom1() >> 5; // 0-7
 
-  if (SEGMENT.intensity != *settingTracker) { // initialize
-    *settingTracker = SEGMENT.intensity;
+  if (ui.intensity() != settingTracker) { // initialize
+    settingTracker = ui.intensity();
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
-      *direction = 0; // down
-      SEGENV.aux1 = 1; // initialize below
+      direction = false; // down
+      aux1 = 1; // initialize below
     }
-    SEGENV.aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
+    aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
   }
 
   // re-order particles in case heavy collisions flipped particles (highest number index particle is on the "bottom")
@@ -10112,13 +10127,6 @@ uint16_t mode_particleHourglass(void) {
       std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
     }
   }
-  // calculate target position depending on direction
-  auto calcTargetPos = [&](size_t i) {
-    return PartSys->particleFlags[i].reversegrav ?
-          PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
-        : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
-  };
-
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check if particle reached target position after falling
     if (PartSys->particleFlags[i].fixed == false && abs(PartSys->particles[i].vx) < 5) {
       int32_t targetposition = calcTargetPos(i);
@@ -10133,23 +10141,23 @@ uint16_t mode_particleHourglass(void) {
       PartSys->setColorByPosition(true); // color fixed by position
     else {
       PartSys->setColorByPosition(false);
-      uint8_t basehue = ((SEGMENT.custom1 & 0x1F) << 3); // use 5 LSBs to select color
+      uint8_t basehue = ((ui.custom1() & 0x1F) << 3); // use 5 LSBs to select color
       switch(colormode) {
         case 0: PartSys->particles[i].hue = 120; break; // fixed at 120, if flip is activated, this can make red and green (use palette 34)
         case 1: PartSys->particles[i].hue = basehue; break; // fixed selectable color
         case 2: // 2 colors inverleaved (same code as 3)
-        case 3: PartSys->particles[i].hue = ((SEGMENT.custom1 & 0x1F) << 1) + (i % 3)*74; break; // 3 interleved colors
+        case 3: PartSys->particles[i].hue = ((ui.custom1() & 0x1F) << 1) + (i % 3)*74; break; // 3 interleved colors
         case 4: PartSys->particles[i].hue = basehue + (i * 255) / PartSys->usedParticles;  break; // gradient palette colors
         case 5: PartSys->particles[i].hue = basehue + (i * 1024) / PartSys->usedParticles;  break; // multi gradient palette colors
         case 6: PartSys->particles[i].hue = i + (strip.now >> 3);  break; // disco! moving color gradient
         default: break; // use color by position
       }
     }
-    if (SEGMENT.check1 && !PartSys->particleFlags[i].reversegrav) // flip color when fallen
+    if (ui.check1() && !PartSys->particleFlags[i].reversegrav) // flip color when fallen
       PartSys->particles[i].hue += 120;
   }
 
-  if (SEGENV.aux1 == 1) { // last countdown call before dropping starts, reset all particles
+  if (aux1 == 1) { // last countdown call before dropping starts, reset all particles
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
@@ -10159,35 +10167,34 @@ uint16_t mode_particleHourglass(void) {
     }
   }
 
-  if (SEGENV.aux1 == 0) { // countdown passed, run
-    if (strip.now >= SEGENV.step) { // drop a particle
+  if (aux1 == 0) { // countdown passed, run
+    if (env.now() >= step) { // drop a particle
       // set next drop time
-      if (SEGMENT.check3 && *direction) // fast reset
-        SEGENV.step = strip.now + 100; // drop one particle every 100ms
+      if (ui.check3() && direction) // fast reset
+        step = env.now() + 100; // drop one particle every 100ms
       else // normal interval
-        SEGENV.step = strip.now + max(100, SEGMENT.speed * 100); // map speed slider from 0.1s to 25.5s
-      if (SEGENV.aux0 < PartSys->usedParticles) {
-        PartSys->particleFlags[SEGENV.aux0].reversegrav = *direction; // let this particle fall or rise
-        PartSys->particleFlags[SEGENV.aux0].fixed = false; // unpin
+        step = env.now() + max(100, ui.speed() * 100); // map speed slider from 0.1s to 25.5s
+      if (aux0 < PartSys->usedParticles) {
+        PartSys->particleFlags[aux0].reversegrav = direction; // let this particle fall or rise
+        PartSys->particleFlags[aux0].fixed = false; // unpin
       }
       else { // overflow
-        *direction = !(*direction); // flip direction
-        SEGENV.aux1 = (SEGMENT.check2) * SEGMENT.vLength() + 100; // set restart countdown, make it short if auto start is unchecked
+        direction = !direction; // flip direction
+        aux1 = (ui.check2()) * env.seglen() + 100; // set restart countdown, make it short if auto start is unchecked
       }
-      if (*direction == 0) // down, start dropping the highest number particle
-        SEGENV.aux0--; // next particle
+      if (direction == false) // down, start dropping the highest number particle
+        aux0--; // next particle
       else
-        SEGENV.aux0++;
+        aux0++;
     }
   }
-  else if (SEGMENT.check2) // auto start/reset
-    SEGENV.aux1--; // countdown
+  else if (ui.check2()) // auto start/reset
+    aux1--; // countdown
 
   PartSys->update(); // update and render
-
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_HOURGLASS[] PROGMEM = "PS Hourglass@Interval,!,Color,Blur,Gravity,Colorflip,Start,Fast Reset;,!;!;1;pal=34,sx=5,ix=200,c1=140,c2=80,c3=4,o1=1,o2=1,o3=1";
+};
+static const char _data_FX_MODE_PS_HOURGLASS[] PROGMEM = "!PS Hourglass@Interval,!,Color,Blur,Gravity,Colorflip,Start,Fast Reset;,!;!;1;pal=34,sx=5,ix=200,c1=140,c2=80,c3=4,o1=1,o2=1,o3=1";
 
 /*
   Particle based Spray effect (like a volcano, possible replacement for popcorn)
@@ -10426,7 +10433,6 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
 */
 void fx_particleStarburst(FxEnv& env) {
   FxConfig& ui = env.ui();
-  Segenv& segenv = env.segenv();
 
   auto initPS = [](ParticleSystem1D *PartSys) {
     PartSys->setKillOutOfBounds(true);
@@ -10469,7 +10475,7 @@ void fx_particleStarburst(FxEnv& env) {
       PartSys->advPartProps[i].sat += 1 + (ui.custom3_reduced() >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
   }
 
-  if (segenv.call % 5 == 0) {
+  if (env.frameCount() % 5 == 0) {
     PartSys->applyFriction(1); //slow down particles
   }
 
@@ -11276,6 +11282,132 @@ static const char _data_FX_MODE_PARTICLEVOLCANO_org[] PROGMEM = "!PS Volcano org
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 /*
+  Particle based Hourglass, particles falling at defined intervals
+  Uses palette for particle color
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particleHourglass(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  constexpr int positionOffset = PS_P_RADIUS_1D / 2;; // resting position offset
+  bool* direction;
+  uint32_t* settingTracker;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 0, 255, 8, false)) // init
+      return mode_static(); // allocation failed or is single pixel
+    PartSys->setBounce(true);
+    PartSys->setWallHardness(100);
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
+  direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
+  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
+  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
+  PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
+  PartSys->enableParticleCollisions(true, 64); // hardness value (found by experimentation on different settings)
+
+  uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
+
+  if (SEGMENT.intensity != *settingTracker) { // initialize
+    *settingTracker = SEGMENT.intensity;
+    for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+      PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
+      *direction = 0; // down
+      SEGENV.aux1 = 1; // initialize below
+    }
+    SEGENV.aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
+  }
+
+  // re-order particles in case heavy collisions flipped particles (highest number index particle is on the "bottom")
+  for (uint32_t i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x < PartSys->particles[i+1].x && PartSys->particleFlags[i].fixed == false && PartSys->particleFlags[i+1].fixed == false) {
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+  // calculate target position depending on direction
+  auto calcTargetPos = [&](size_t i) {
+    return PartSys->particleFlags[i].reversegrav ?
+          PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
+        : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
+  };
+
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check if particle reached target position after falling
+    if (PartSys->particleFlags[i].fixed == false && abs(PartSys->particles[i].vx) < 5) {
+      int32_t targetposition = calcTargetPos(i);
+      bool belowtarget = PartSys->particleFlags[i].reversegrav ? (PartSys->particles[i].x > targetposition) : (PartSys->particles[i].x < targetposition);
+      bool closeToTarget = abs(targetposition - PartSys->particles[i].x) < PS_P_RADIUS_1D;
+      if (belowtarget || closeToTarget) { // overshot target or close to target and slow speed
+        PartSys->particles[i].x = targetposition; // set exact position
+        PartSys->particleFlags[i].fixed = true;   // pin particle
+      }
+    }
+    if (colormode == 7)
+      PartSys->setColorByPosition(true); // color fixed by position
+    else {
+      PartSys->setColorByPosition(false);
+      uint8_t basehue = ((SEGMENT.custom1 & 0x1F) << 3); // use 5 LSBs to select color
+      switch(colormode) {
+        case 0: PartSys->particles[i].hue = 120; break; // fixed at 120, if flip is activated, this can make red and green (use palette 34)
+        case 1: PartSys->particles[i].hue = basehue; break; // fixed selectable color
+        case 2: // 2 colors inverleaved (same code as 3)
+        case 3: PartSys->particles[i].hue = ((SEGMENT.custom1 & 0x1F) << 1) + (i % 3)*74; break; // 3 interleved colors
+        case 4: PartSys->particles[i].hue = basehue + (i * 255) / PartSys->usedParticles;  break; // gradient palette colors
+        case 5: PartSys->particles[i].hue = basehue + (i * 1024) / PartSys->usedParticles;  break; // multi gradient palette colors
+        case 6: PartSys->particles[i].hue = i + (strip.now >> 3);  break; // disco! moving color gradient
+        default: break; // use color by position
+      }
+    }
+    if (SEGMENT.check1 && !PartSys->particleFlags[i].reversegrav) // flip color when fallen
+      PartSys->particles[i].hue += 120;
+  }
+
+  if (SEGENV.aux1 == 1) { // last countdown call before dropping starts, reset all particles
+    for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+      PartSys->particleFlags[i].collide = true;
+      PartSys->particleFlags[i].perpetual = true;
+      PartSys->particles[i].ttl = 260;
+      PartSys->particles[i].x = calcTargetPos(i);
+      PartSys->particleFlags[i].fixed = true;
+    }
+  }
+
+  if (SEGENV.aux1 == 0) { // countdown passed, run
+    if (strip.now >= SEGENV.step) { // drop a particle
+      // set next drop time
+      if (SEGMENT.check3 && *direction) // fast reset
+        SEGENV.step = strip.now + 100; // drop one particle every 100ms
+      else // normal interval
+        SEGENV.step = strip.now + max(100, SEGMENT.speed * 100); // map speed slider from 0.1s to 25.5s
+      if (SEGENV.aux0 < PartSys->usedParticles) {
+        PartSys->particleFlags[SEGENV.aux0].reversegrav = *direction; // let this particle fall or rise
+        PartSys->particleFlags[SEGENV.aux0].fixed = false; // unpin
+      }
+      else { // overflow
+        *direction = !(*direction); // flip direction
+        SEGENV.aux1 = (SEGMENT.check2) * SEGMENT.vLength() + 100; // set restart countdown, make it short if auto start is unchecked
+      }
+      if (*direction == 0) // down, start dropping the highest number particle
+        SEGENV.aux0--; // next particle
+      else
+        SEGENV.aux0++;
+    }
+  }
+  else if (SEGMENT.check2) // auto start/reset
+    SEGENV.aux1--; // countdown
+
+  PartSys->update(); // update and render
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_HOURGLASS_org[] PROGMEM = "!PS Hourglass org@Interval,!,Color,Blur,Gravity,Colorflip,Start,Fast Reset;,!;!;1;pal=34,sx=5,ix=200,c1=140,c2=80,c3=4,o1=1,o2=1,o3=1";
+
+
+/*
   Particle Fireworks Starburst replacement (smoother rendering, more settings)
   Uses palette for particle color
   by DedeHai (Damian Schneider)
@@ -11603,7 +11735,7 @@ addEffect(FX_MODE_PSPINBALL, &mode_particlePinball, _data_FX_MODE_PSPINBALL); //
 addEffect(FX_MODE_PSDANCINGSHADOWS, &mode_particleDancingShadows, _data_FX_MODE_PARTICLEDANCINGSHADOWS);
 addEffect(FX_MODE_PSFIREWORKS1D, &mode_particleFireworks1D, _data_FX_MODE_PS_FIREWORKS1D);
 addEffect(FX_MODE_PSSPARKLER, &mode_particleSparkler, _data_FX_MODE_PS_SPARKLER);
-addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLASS);
+addEffectClass<FX_ParticleHourglass>(*this, FX_MODE_PSHOURGLASS, _data_FX_MODE_PS_HOURGLASS);
 addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
 addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
 addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
@@ -11627,6 +11759,7 @@ addEffect(255, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 addEffect(255, mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO_org);
 #endif
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
+addEffect(255, mode_particleHourglass, _data_FX_MODE_PS_HOURGLASS_org);
 addEffect(255, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
 #endif
 #endif

@@ -46,11 +46,14 @@ public:
   /// Duration (in ms) since the effect was rendered the last time.
   uint32_t deltaT() const { return _deltaT; }
 
+  /// Get the number of frames that have already been rendered; starts counting at 0.
+  uint32_t frameCount() const { return _segenv->call; }
+
   /** Returns \c true only for the during the very first frame.
    * @note Try to avoid using this method. Prefer putting initialization stuff into the constructor
    * of your effect class.
    */
-  bool isFistFrame() const { return _segenv->call == 0; }
+  bool isFistFrame() const { return frameCount() == 0; }
 
   // ----- rendering related methods -----
 
@@ -103,7 +106,10 @@ public:
    * @param PartSys Pointer to ParticleSystem (which will be redirected).
    * @retval \c true Success; \a PartSys is now pointing to a valid ParticleSystem1D instance.
    * @retval \c false Allocation failed; do \e not use \a PartSys
-   * @note ParticleSystem allocates memory via Segment, thus completely independent from \c allocateData()
+   * @note The memory for the ParticleSystem is allocated via Segment class (by reusing the existing
+   * machanism). This means that the ParticleSystem is completely independent from the allocation
+   * utilities of the Segenv class - thus \c getFxData() / \c getFxDataArray() / \c allocateData()
+   * from there can now still be used for other effect data.
    */
   bool getParticleSystem(ParticleSystem1D *&PartSys,
                          const uint32_t requestedsources,
@@ -145,7 +151,10 @@ public:
    * @param PartSys Pointer to ParticleSystem (which will be redirected).
    * @retval \c true Success; \a PartSys is now pointing to a valid ParticleSystem1D instance.
    * @retval \c false Allocation failed; do \e not use \a PartSys
-   * @note ParticleSystem allocates memory via Segment, thus completely independent from \c allocateData()
+   * @note The memory for the ParticleSystem is allocated via Segment class (by reusing the existing
+   * machanism). This means that the ParticleSystem is completely independent from the allocation
+   * utilities of the Segenv class - thus \c getFxData() / \c getFxDataArray() / \c allocateData()
+   * from there can now still be used for other effect data.
    */
   bool getParticleSystem(ParticleSystem2D *&PartSys,
                          const uint32_t requestedsources,
