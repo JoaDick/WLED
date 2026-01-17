@@ -1,6 +1,8 @@
 /**
  * Interfaces and helper classes for class-based WLED effects.
  *
+ * @file This file provides a general abstraction for color handling.
+ * 
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
  */

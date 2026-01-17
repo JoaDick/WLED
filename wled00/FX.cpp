@@ -13,6 +13,7 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
+#include "EffectAPI/EffectAPI.h"
 
 #define EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 
@@ -4106,7 +4107,7 @@ static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;
 void fx_plasma(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // initialize phases on start
   if (env.isFistFrame()) {
@@ -4750,7 +4751,7 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
 void fx_blends(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
   uint32_t* pixels;
@@ -5014,7 +5015,7 @@ class AuroraWave {
 void fx_aurora(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   const uint16_t wavecount = map(ui.intensity(), 0, 255, 2, W_MAX_COUNT);
   if(segenv.aux1 != wavecount) { segenv.reset(); }
@@ -5050,8 +5051,8 @@ void fx_aurora(FxEnv& env) {
     seg.setPixelColor(i, mixedRgb);
   }
 }
-static const char _data_FX_MODE_AURORA[] PROGMEM = "!Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
+static const char _data_FX_MODE_AURORA[] PROGMEM = "!Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
 // WLED-SR effects
 
@@ -7161,7 +7162,7 @@ typedef struct Plasphase {
 void fx_plasmoid(FxEnv& env) {                  // Plasmoid. By Andrew Tuline.
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
   Plasphase* plasmoip;
@@ -10430,7 +10431,7 @@ static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hu
 void fx_particleStarburst(FxEnv& env) {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   auto initPS = [](ParticleSystem1D *PartSys) {
     PartSys->setKillOutOfBounds(true);
@@ -10440,7 +10441,7 @@ void fx_particleStarburst(FxEnv& env) {
   };
 
   ParticleSystem1D *PartSys;
-  if (!segenv.getParticleSystem(initPS, PartSys, 1, 200, 0, true))
+  if (!env.getParticleSystem(initPS, PartSys, 1, 200, 0, true))
     return; // something went wrong, no data!
 
   // Particle System settings
@@ -11006,7 +11007,7 @@ void fx_ColorClouds(FxEnv& env)
 {
   FxConfig& ui = env.ui();
   Segment& seg = env.seg();
-  SegEnv& segenv = env.segenv();
+  Segenv& segenv = env.segenv();
 
   // Set random start points for clouds and color.
   if(env.isFistFrame()) {

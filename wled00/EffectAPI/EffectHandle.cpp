@@ -8,7 +8,32 @@
 #include "EffectAdapter.h"
 
 //--------------------------------------------------------------------------------------------------
-// class EffectHandle
+
+EffectHandle::EffectHandle(Segment &seg) : _fxData{&seg, 0} {}
+
+EffectHandle::~EffectHandle() = default;
+
+EffectHandle::EffectHandle(const EffectHandle &other)
+{
+  cloneEffectFrom(other);
+}
+
+EffectHandle::EffectHandle(EffectHandle &&other) noexcept
+{
+  moveEffectFrom(other);
+}
+
+EffectHandle &EffectHandle::operator=(const EffectHandle &other)
+{
+  cloneEffectFrom(other);
+  return *this;
+}
+
+EffectHandle &EffectHandle::operator=(EffectHandle &&other) noexcept
+{
+  moveEffectFrom(other);
+  return *this;
+}
 
 uint16_t EffectHandle::showEffect(uint32_t now)
 {
@@ -30,6 +55,11 @@ bool EffectHandle::onSegmentChanges()
   return true;
 }
 
+void EffectHandle::reset()
+{
+  _fxAdapter.reset();
+}
+
 void EffectHandle::cloneEffectFrom(const EffectHandle &src)
 {
   reset();
@@ -39,10 +69,20 @@ void EffectHandle::cloneEffectFrom(const EffectHandle &src)
   }
 }
 
+void EffectHandle::cloneEffectTo(EffectHandle &dest) const
+{
+  dest.cloneEffectFrom(*this);
+}
+
 void EffectHandle::moveEffectFrom(EffectHandle &src) noexcept
 {
   _fxAdapter = std::move(src._fxAdapter);
   updateSegment(*_fxData.seg);
+}
+
+void EffectHandle::moveEffectTo(EffectHandle &dest) noexcept
+{
+  dest.moveEffectFrom(*this);
 }
 
 void EffectHandle::swap(EffectHandle &other) noexcept
