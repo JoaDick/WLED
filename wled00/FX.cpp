@@ -15,7 +15,7 @@
 #include "fcn_declare.h"
 #include "EffectAPI/EffectAPI.h"
 
-#define EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
+// #define EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
   #include "FXparticleSystem.h" // include particle system code only if at least one system is enabled
@@ -4748,29 +4748,28 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
   Blends random colors across palette
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
-void fx_blends(FxEnv& env) {
-  FxConfig& ui = env.ui();
-  Segment& seg = env.seg();
-  Segenv& segenv = env.segenv();
-
-  unsigned pixelLen = env.seglen() > UINT8_MAX ? UINT8_MAX : env.seglen();
-  uint32_t* pixels;
-  if (!segenv.getFxDataArray(pixels, pixelLen + 1)) return; //allocation failed
-  uint8_t blendSpeed = map(ui.intensity(), 0, UINT8_MAX, 10, 128);
-  unsigned shift = (env.now() * ((ui.speed() >> 3) +1)) >> 8;
+uint16_t mode_blends(void) {
+  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
+  unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
+  unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], color_from_palette(env, shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    pixels[i] = color_blend(pixels[i], SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
     shift += 3;
   }
 
   unsigned offset = 0;
-  for (unsigned i = 0; i < env.seglen(); i++) {
-    seg.setPixelColor(i, pixels[offset++]);
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, pixels[offset++]);
     if (offset >= pixelLen) offset = 0;
   }
+
+  return FRAMETIME;
 }
-static const char _data_FX_MODE_BLENDS[] PROGMEM = "!Blends@Shift speed,Blend speed;;!";
+static const char _data_FX_MODE_BLENDS[] PROGMEM = "Blends@Shift speed,Blend speed;;!";
 
 
 /*
@@ -11135,34 +11134,6 @@ uint16_t mode_plasma(void) {
 const char _data_FX_MODE_PLASMA_org[] PROGMEM = "!Plasma org@Phase,!;!;!";
 
 
-/*
-  Blends random colors across palette
-  Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
-*/
-uint16_t mode_blends(void) {
-  unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
-  unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
-  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
-  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
-  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
-  unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
-
-  for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
-    shift += 3;
-  }
-
-  unsigned offset = 0;
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, pixels[offset++]);
-    if (offset >= pixelLen) offset = 0;
-  }
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_BLENDS_org[] PROGMEM = "!Blends org@Shift speed,Blend speed;;!";
-
-
 uint16_t mode_aurora(void) {
   AuroraWave* waves;
   SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
@@ -11452,7 +11423,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
   addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
-  addEffectFunction<fx_blends>(*this, FX_MODE_BLENDS, _data_FX_MODE_BLENDS);
+  addModeFunction<mode_blends>(*this, FX_MODE_BLENDS, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
@@ -11578,7 +11549,6 @@ addEffectFunction<fx_broken>(*this, 255, "Broken");
 addEffect(255, mode_twinkle, _data_FX_MODE_TWINKLE_org);
 addEffect(255, mode_aurora, _data_FX_MODE_AURORA_org);
 addEffect(255, mode_plasma, _data_FX_MODE_PLASMA_org);
-addEffect(255, mode_blends, _data_FX_MODE_BLENDS_org);
 addEffect(255, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 addEffect(255, mode_particleStarburst, _data_FX_MODE_PS_STARBURST_org);
