@@ -11107,16 +11107,16 @@ void fx_Example_Line2D(FxEnv& env)
   auto &ui = env.ui();
   auto &matrix = env.pxMatrix();
 
+  const uint8_t glow = ui.custom3_reduced();
+  if (glow == 0)
+    matrix.clear();
+  else
+    matrix.fastFade(32 - glow);
+
   const NIndex x0 = beatsinF(ui.speed() / 2.0f);
   const NIndex y0 = beatsinF(ui.intensity() / 2.0f, 0, uint16_max / 2);
   const NIndex x1 = beatsinF(ui.custom1() / 2.0f, 0, uint16_max / 4);
   const NIndex y1 = beatsinF(ui.custom2() / 2.0f);
-
-  const uint8_t glow = ui.custom3_reduced();
-  if (glow)
-    matrix.fastFade(31 - glow);
-  else
-    matrix.clear();
 
   const PxColor color = rainbowColor(env, (env.now() >> 4) & 0xFF);
   line_N(matrix, {x0, y0}, {x1, y1}, color, ui.check3());
@@ -11740,7 +11740,7 @@ addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 // --- new class-based effect examples ---
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS);
-addEffectFunction<fx_Scratchpad>(*this, 219, _data_FX_SCRATCHPAD_FCT);
+addEffectScratchpad(*this);
 addEffectFunction<fx_Example_Line>(*this, 255, _data_FX_EXAMPLE_LINE);
 #ifndef WLED_DISABLE_2D
 addEffectFunction<fx_Example_Line2D>(*this, 255, _data_FX_EXAMPLE_LINE2D);

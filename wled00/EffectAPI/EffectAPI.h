@@ -125,3 +125,5 @@ uint8_t addModeFunction(WS2812FX &wled, uint8_t FX_id, const char *FX_data)
 }
 
 //--------------------------------------------------------------------------------------------------
+
+void addEffectScratchpad(WS2812FX &wled);

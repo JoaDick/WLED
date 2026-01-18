@@ -280,5 +280,25 @@ void fx_broken(FxEnv &env);
 
 //--------------------------------------------------------------------------------------------------
 
-void fx_Scratchpad(FxEnv &env);
-extern const char _data_FX_SCRATCHPAD_FCT[];
+/// Helper class for effects that need periodic triggers for their algorithms.
+class PeriodicTrigger
+{
+public:
+  explicit PeriodicTrigger(uint32_t ms = 0) : _delta{ms} {}
+
+  /** Process the trigger.
+   * @param now The current timestamp.
+   * @retval \c true The trigger fired (only once per frame).
+   * @retval \c false Trigger still pending; nothing to do.
+   */
+  bool process(uint32_t now);
+
+  void set_ms(uint32_t ms) { _delta = ms; } // 0 = off
+  void set_FPS(uint8_t fps = 50) { set_ms(fps ? 1000 / fps : 0); }
+
+private:
+  uint32_t _triggerTime = 0;
+  uint32_t _delta;
+};
+
+//--------------------------------------------------------------------------------------------------

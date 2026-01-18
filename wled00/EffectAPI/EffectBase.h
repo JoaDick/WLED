@@ -47,6 +47,17 @@ protected:
    * @note This method won't be called anymore when the effect is broken!
    */
   virtual void showEffect(FxEnv &env) = 0;
+
+  /** Check if the effect's background has to be faded (or blended or whatever).
+   * This method returns \c true roughly 50 times per second. Only one trigger is emitted per frame.
+   * Tipp: Use your own instances of the underlying PeriodicTrigger helper class in case your effect
+   * algorithm requires multiple different trigger periods.
+   */
+  bool mustFade(FxEnv &env) { return _fadingTrigger.process(env.now()); }
+  void setFadingTrigger_FPS(uint8_t fps) { _fadingTrigger.set_FPS(fps); } // 0 = off
+
+private:
+  PeriodicTrigger _fadingTrigger{1000 / 50}; // default: 50 FPS
 };
 
 //--------------------------------------------------------------------------------------------------
