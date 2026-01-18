@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "FxEnv.h"
 
 //--------------------------------------------------------------------------------------------------
@@ -177,5 +179,41 @@ private:
 
   FxEnv &_env;
 };
+
+//--------------------------------------------------------------------------------------------------
+
+/// Maximum value of an \c uint16_t
+constexpr uint16_t uint16_max = std::numeric_limits<uint16_t>::max();
+
+/// Maximum value of an \c uint16_t - but represented as \c float
+constexpr float uint16_maxF = static_cast<float>(uint16_max);
+
+/// @brief Normalized beat() function with output range 0.0 ... 1.0
+inline float beatF(float beats_per_minute, uint32_t timebase = 0)
+{
+  const auto bpm = static_cast<accum88>(beats_per_minute * 256.0f);
+  return static_cast<float>(beat88(bpm, timebase)) / uint16_maxF;
+}
+
+/// @brief Normalized beatsin() function with output range 0.0 ... 1.0
+inline float beatsinF(float beats_per_minute, uint32_t timebase = 0, uint16_t phase_offset = 0)
+{
+  const auto bpm = static_cast<accum88>(beats_per_minute * 256.0f);
+  return static_cast<float>(beatsin88_t(bpm, 0, uint16_max, timebase, phase_offset)) / uint16_maxF;
+}
+
+/// @brief Normalized perlin() noise functions with output range 0.0 ... 1.0
+inline float perlinF(uint32_t x)
+{
+  return static_cast<float>(perlin16(x)) / uint16_maxF;
+}
+inline float perlinF(uint32_t x, uint32_t y)
+{
+  return static_cast<float>(perlin16(x, y)) / uint16_maxF;
+}
+inline float perlinF(uint32_t x, uint32_t y, uint32_t z)
+{
+  return static_cast<float>(perlin16(x, y, z)) / uint16_maxF;
+}
 
 //--------------------------------------------------------------------------------------------------

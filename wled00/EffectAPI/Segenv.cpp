@@ -11,10 +11,11 @@
 size_t Segenv::_allDataSize = 0;
 
 Segenv::Segenv(const Segenv &other)
-    : step{other.step}, aux0{other.aux0}, aux1{other.aux1}, _call{other._call}
+    : step{other.step}, _call{other._call}
 {
   if (this != &other)
   {
+    memcpy(buffer, other.buffer, sizeof(buffer));
     if (other._dataSize)
     {
       if (allocateData(other._dataSize))
@@ -82,8 +83,7 @@ void Segenv::reset()
   deallocateData();
   _call = 0;
   step = 0;
-  aux0 = 0;
-  aux1 = 0;
+  memset(buffer, 0, sizeof(buffer));
 }
 
 //--------------------------------------------------------------------------------------------------

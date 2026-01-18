@@ -279,3 +279,6 @@ private:
 void fx_broken(FxEnv &env);
 
 //--------------------------------------------------------------------------------------------------
+
+void fx_Scratchpad(FxEnv &env);
+extern const char _data_FX_SCRATCHPAD_FCT[];

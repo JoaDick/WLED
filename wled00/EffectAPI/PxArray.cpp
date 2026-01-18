@@ -129,6 +129,40 @@ void PxArray::do_blur(uint8_t blur_amount, bool smear)
 #endif
 }
 
+void PxArray::do_rotate(int delta)
+{
+  while (delta > 0)
+  {
+    rotateUp();
+    --delta;
+  }
+  while (delta < 0)
+  {
+    rotateDown();
+    ++delta;
+  }
+}
+
+void PxArray::rotateUp()
+{
+  const auto carry = do_getColor(_size - 1);
+  AIndex src = _size - 2;
+  AIndex dst = _size - 1;
+  while (dst > 0)
+    do_setColor(dst--, do_getColor(src--));
+  do_setColor(0, carry);
+}
+
+void PxArray::rotateDown()
+{
+  const auto carry = do_getColor(0);
+  AIndex src = 1;
+  AIndex dst = 0;
+  while (src < _size)
+    do_setColor(dst++, do_getColor(src++));
+  do_setColor(_size - 1, carry);
+}
+
 bool constrainRange(const PxArray &pxa, AIndex &firstPos, AIndex &lastPos)
 {
   if (firstPos > lastPos)

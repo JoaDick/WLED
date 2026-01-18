@@ -105,7 +105,7 @@ public:
   PxMatrixRow row(AIndex rowIndex);
 
   /// Get a specific column of the matrix, to be treated as a PxArray.
-  PxMatrixColumn column(AIndex columnIndex);
+  PxMatrixColumn col(AIndex columnIndex);
 
   // ----- methods using normalized pixel positions -----
 
@@ -169,6 +169,15 @@ public:
    * @param blurAmountY is applied to all columns (= vertical blurring)
    */
   void blurXY(uint8_t blurAmountX, uint8_t blurAmountY, bool smear = false) { do_blurXY(blurAmountX, blurAmountY, smear); }
+
+  /// Rotate all rows of this matrix by the given \a delta (in pixels) = horizontal scrolling.
+  void rotateX(int delta) { do_rotateXY(delta, 0); }
+
+  /// Rotate all columns of this matrix by the given \a delta (in pixels) = vertical scrolling.
+  void rotateY(int delta) { do_rotateXY(0, delta); }
+
+  /// Rotate all rows and columns of this matrix.
+  void rotateXY(int deltaX, int deltaY) { do_rotateXY(deltaX, deltaY); }
 
   // ----- aliases for better compatibility with Segment class -----
 
@@ -253,6 +262,9 @@ protected:
    * @param blurAmountY is applied to all columns
    */
   virtual void do_blurXY(uint8_t blurAmountX, uint8_t blurAmountY, bool smear);
+
+  /// Rotate all rows and columns of this matrix.
+  virtual void do_rotateXY(int deltaX, int deltaY);
 
 private:
   int _sizeX;
@@ -387,7 +399,7 @@ inline PxMatrixPixelProxy PxMatrix::operator[](APoint pos) { return pixel(pos); 
 
 inline PxMatrixRow PxMatrix::row(AIndex rowIndex) { return PxMatrixRow{*this, _sizeX, rowIndex}; }
 
-inline PxMatrixColumn PxMatrix::column(AIndex columnIndex) { return PxMatrixColumn{*this, columnIndex, _sizeY}; }
+inline PxMatrixColumn PxMatrix::col(AIndex columnIndex) { return PxMatrixColumn{*this, columnIndex, _sizeY}; }
 
 inline void PxMatrix::do_fadeToBlackBy(uint8_t fadeBy) { do_fade(fadeBy, false); }
 

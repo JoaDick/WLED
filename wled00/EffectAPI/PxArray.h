@@ -147,6 +147,9 @@ public:
    */
   void blur(uint8_t blurAmount, bool smear = false) { do_blur(blurAmount, smear); }
 
+  /// Rotate all pixels of the array by the given \a delta (in pixels).
+  void rotate(int delta) { do_rotate(delta); }
+
   /** Copy all the pixels colors from the \a other array to this array's pixels.
    * The shorter PxArray of then determines the number of copied pixels.
    */
@@ -234,6 +237,13 @@ protected:
 
   /// Blur the pixels of this array.
   virtual void do_blur(uint8_t blurAmount, bool smear);
+
+  /// Rotate all pixels of the array by the given \a delta (in pixels).
+  virtual void do_rotate(int delta);
+
+private:
+  void rotateUp();
+  void rotateDown();
 
 private:
   int _size;

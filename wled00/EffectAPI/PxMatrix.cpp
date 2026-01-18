@@ -120,11 +120,19 @@ void PxMatrix::do_blendColor(PxColor color, uint8_t blend)
 void PxMatrix::do_blurXY(uint8_t blurAmountX, uint8_t blurAmountY, bool smear)
 {
   if (blurAmountX)
-    for (AIndex pos = 0; pos < _sizeY; ++pos)
-      row(pos).blur(blurAmountX, smear);
+    for (AIndex posY = 0; posY < _sizeY; ++posY)
+      row(posY).blur(blurAmountX, smear);
   if (blurAmountY)
-    for (AIndex pos = 0; pos < _sizeX; ++pos)
-      column(pos).blur(blurAmountY, smear);
+    for (AIndex posX = 0; posX < _sizeX; ++posX)
+      col(posX).blur(blurAmountY, smear);
+}
+
+void PxMatrix::do_rotateXY(int deltaX, int deltaY)
+{
+  for (AIndex posY = 0; posY < _sizeY; ++posY)
+    row(posY).rotate(deltaX);
+  for (AIndex posX = 0; posX < _sizeX; ++posX)
+    col(posX).rotate(deltaY);
 }
 
 //--------------------------------------------------------------------------------------------------

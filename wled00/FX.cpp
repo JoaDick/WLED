@@ -11009,14 +11009,16 @@ void fx_ColorClouds(FxEnv& env)
   PxArray& leds = env.pxArray();
   Segenv& segenv = env.segenv();
 
+  // Start points are persistent in segenv.
+  uint32_t& volX0 = segenv.buffer[0].uint32_0;
+  uint32_t& hueX0 = segenv.buffer[1].uint32_0;
+
   // Set random start points for clouds and color.
   if(env.isFistFrame()) {
-    segenv.aux0 = hw_random16();
-    segenv.aux1 = hw_random16();
+    volX0 = hw_random16();
+    hueX0 = hw_random16();
   }
-  const uint32_t volX0 = segenv.aux0;
-  const uint32_t hueX0 = segenv.aux1;
-  const uint8_t hueOffset0 = volX0 + hueX0;
+  const uint8_t hueOffset0 = volX0 + hueX0;  // derive a 3rd random number
 
   // Put more emphasis on the red'ish colors when true (or begin & end of palette).
   const bool moreRed = ui.check3();
@@ -11097,6 +11099,31 @@ void fx_Example_Line(FxEnv& env)
   }
 }
 static const char _data_FX_EXAMPLE_LINE[] PROGMEM = "Ex: Line@First,Last,Size,Offset,,Palette,,Wrap;;!;;sx=64,ix=191,c1=128,c2=128,o1=1,o3=1,pal=0";
+
+
+/// FX example for drawing a 2D line.
+void fx_Example_Line2D(FxEnv& env)
+{
+  auto &ui = env.ui();
+  auto &matrix = env.pxMatrix();
+
+  const NIndex x0 = beatsinF(ui.speed() / 2.0f);
+  const NIndex y0 = beatsinF(ui.intensity() / 2.0f, 0, uint16_max / 2);
+  const NIndex x1 = beatsinF(ui.custom1() / 2.0f, 0, uint16_max / 4);
+  const NIndex y1 = beatsinF(ui.custom2() / 2.0f);
+
+  const uint8_t glow = ui.custom3_reduced();
+  if (glow)
+    matrix.fastFade(31 - glow);
+  else
+    matrix.clear();
+
+  const PxColor color = rainbowColor(env, (env.now() >> 4) & 0xFF);
+  line_N(matrix, {x0, y0}, {x1, y1}, color, ui.check3());
+  // matrix.setColor_N({x0, y0}, 0x880000);
+  // matrix.setColor_N({x1, y1}, 0x008800);
+}
+static const char _data_FX_EXAMPLE_LINE2D[] PROGMEM = "Ex: Line 2D@X0,Y0,X1,Y1,Glow,,,Soft;;!;2;sx=0,ix=0,c1=64,c2=64,c3=0,o3=1,pal=0";
 
 
 /// FX example with a WU pixel.
@@ -11202,17 +11229,13 @@ void fx_Example_Text(FxEnv& env)
 
   matrix.clear();
   if(ui.check2()) {
-    // white dot = center position (from perlin noise)
-    matrix.setColor(x_center, y_center, 0xFFFFFF);
-    // red dot = position for drawing
-    matrix.setColor(x_0, y_0, 0xFF0000);
-    matrix.setColor(x_0, y_0 + letterHeight - 1, 0x0F0000);
-    matrix.setColor(x_0 + letterWidth - 1, y_0, 0x0F0000);
-    matrix.setColor(x_0 + letterWidth - 1, y_0 + letterHeight - 1, 0x0F0000);
+    box(matrix, {x_0, y_0}, {x_0 + letterWidth - 1, y_0 + letterHeight - 1}, 0x0F0000);
+    matrix[{x_0, y_0}] = 0x880000;  // drawing position
+    matrix[{x_center, y_center}] = 0x008800;  // center position (from perlin noise)
   }
   drawCharacter(matrix, letter, {x_0, y_0}, letterWidth, letterHeight, ui.fxColor(), ui.bgColor());
 }
-static const char _data_FX_EXAMPLE_TEXT[] PROGMEM = "Ex: Text@Speed X,Speed Y,,,Size,,Helper dots;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
+static const char _data_FX_EXAMPLE_TEXT[] PROGMEM = "Ex: Text@Speed X,Speed Y,,,Size,,Frame;!,!;!;2;sx=15,ix=15,c3=20,pal=2";
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -11717,9 +11740,13 @@ addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #ifdef EFFECTAPI_KEEP_ORIGINAL_EXAMPLES
 // --- new class-based effect examples ---
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS);
+addEffectFunction<fx_Scratchpad>(*this, 219, _data_FX_SCRATCHPAD_FCT);
 addEffectFunction<fx_Example_Line>(*this, 255, _data_FX_EXAMPLE_LINE);
+#ifndef WLED_DISABLE_2D
+addEffectFunction<fx_Example_Line2D>(*this, 255, _data_FX_EXAMPLE_LINE2D);
 addEffectFunction<fx_Example_Text>(*this, 255, _data_FX_EXAMPLE_TEXT);
 addEffectFunction<fx_Example_WU_Pixel>(*this, 255, _data_FX_EXAMPLE_WU_PIXEL);
+#endif
 addEffectFunction<fx_broken>(*this, 255, "Broken");
 // --- originals effects for comparison ---
 addEffect(255, mode_twinkle, _data_FX_MODE_TWINKLE_org);

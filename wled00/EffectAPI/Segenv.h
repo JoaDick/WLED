@@ -34,6 +34,54 @@ public:
   Segenv &operator=(const Segenv &) = delete;
   Segenv &operator=(Segenv &&) = delete;
 
+  /** Helper for storing persistent effect data with different datatypes.
+   * @note Only one member of the union can be used at the same time!
+   * For example, either float_0 \e or int16_0 and int16_1 \e or uint8_0 ... uint8_3 \e or bit_0 ... bit_n
+   */
+  union Buffer
+  {
+    float float_0;
+    int32_t int32_0;
+    uint32_t uint32_0;
+    struct
+    {
+      int16_t int16_0;
+      int16_t int16_1;
+    };
+    struct
+    {
+      uint16_t uint16_0;
+      uint16_t uint16_1;
+    };
+    struct
+    {
+      int8_t int8_0;
+      int8_t int8_1;
+      int8_t int8_2;
+      int8_t int8_3;
+    };
+    struct
+    {
+      uint8_t uint8_0;
+      uint8_t uint8_1;
+      uint8_t uint8_2;
+      uint8_t uint8_3;
+    };
+    struct
+    {
+      unsigned bit_0 : 1;
+      unsigned bit_1 : 1;
+      unsigned bit_2 : 1;
+      unsigned bit_3 : 1;
+      unsigned bit_4 : 1;
+      unsigned bit_5 : 1;
+      unsigned bit_6 : 1;
+      unsigned bit_7 : 1;
+      // could be extended up to bit_31
+    };
+  };
+  static_assert(sizeof(Buffer) == 4, "WTF compiler are you using?!?");
+
   /** Call counter (starts with 0 and is incremented by one after every frame).
    * @note Effect implementations shall use this instead of \c SEGENV.call
    * The value of this counter cannot be manipulated by the effects.
@@ -41,20 +89,32 @@ public:
    */
   const uint32_t &call = _call;
 
-  /** Custom "step" variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.step
-   */
-  uint32_t step = 0;
+  // all members are initialized with 0
+  union
+  {
+    /** Alternative to step/aux0/aux1 with much more options apout the desired datatype.
+     * Do never use both at the same time!
+     */
+    Buffer buffer[4]; // yes, we spent additional 8 bytes to have two more entries :-)
 
-  /** Custom variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.aux0
-   */
-  uint16_t aux0 = 0;
+    struct
+    {
+      /** Custom "step" variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.step
+       */
+      uint32_t step;
 
-  /** Custom variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.aux1
-   */
-  uint16_t aux1 = 0;
+      /** Custom variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.aux0
+       */
+      uint16_t aux0;
+
+      /** Custom variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.aux1
+       */
+      uint16_t aux1;
+    };
+  };
 
   /** EXPERIMENTAL
    * ...
@@ -182,7 +242,7 @@ public:
   void reset();
 
 protected:
-  Segenv() = default;
+  Segenv() : buffer{} {};
   Segenv(const Segenv &other);
   ~Segenv() { deallocateData(); }
 
