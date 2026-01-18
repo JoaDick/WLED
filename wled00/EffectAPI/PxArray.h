@@ -25,13 +25,12 @@ using NIndex = float;
 
 /** Convert the given normalized position into its corresponding absolute position.
  * @param pos Normalized pixel position to convert
- * @param size Size of e.g. the corresponding pixel array
- *     \c 0.0 = first pixel (i.e. start of pixel array) --> absolute position = \c 0
- *     \c 1.0 = last pixel  (i.e. end of pixel array)   --> absolute position = \c size-1
+ * @param refIndex Reference index which is returned for \a pos = 1.0
+ *                 This is typically \c size-1 for a pixel array.
  * @note This function includes a small margin (1/2 pixel) below 0.0 and above 1.0 which is also
  * mapped into the valid pixel array range.
  */
-inline AIndex norm2abs(NIndex pos, AIndex size) { return round(pos * (size - 1)); }
+inline AIndex norm2abs(NIndex pos, AIndex refIndex) { return static_cast<AIndex>(round(pos * refIndex)); }
 
 //--------------------------------------------------------------------------------------------------
 class PxArrayPixelProxy;
@@ -54,7 +53,7 @@ public:
   // ----- methods using absolute pixel positions -----
 
   /// Absolute size of this array = number of pixels.
-  AIndex size() const { return _size; }
+  int size() const { return _size; }
 
   /// Set the pixel at the given position to the given \a color
   void setColor(AIndex pos, PxColor color) { do_setColor(pos, color); }
@@ -87,7 +86,7 @@ public:
    *     \c 0.0 = first pixel (i.e. start of pixel array) --> absolute position = \c 0
    *     \c 1.0 = last pixel  (i.e. end of pixel array)   --> absolute position = \c size()-1
    */
-  AIndex toAbs(NIndex pos) const { return norm2abs(pos, _size); }
+  AIndex toAbs(NIndex pos) const { return norm2abs(pos, _size - 1); }
 
   /// Like setColor() - but with normalized position.
   void setColor_N(NIndex pos, PxColor color) { do_setColor(toAbs(pos), color); }
@@ -180,11 +179,11 @@ public:
 
 protected:
   PxArray(const PxArray &) = default;
-  explicit PxArray(AIndex pixelCount) : _size(pixelCount) {}
+  explicit PxArray(int size) : _size(size) {}
   ~PxArray() = default;
 
   /// Call this method when the segment's dimension has changed.
-  void updateSize(AIndex newSize) { _size = newSize; }
+  void updateSize(int newSize) { _size = newSize; }
 
   /// Get the background color.
   virtual PxColor do_getBackgroundColor() const = 0;
@@ -237,7 +236,7 @@ protected:
   virtual void do_blur(uint8_t blurAmount, bool smear);
 
 private:
-  AIndex _size;
+  int _size;
 };
 
 /** Constrain (and reorder) the given \a firstPos and \a lastPos to be within the bounds of \a pxa

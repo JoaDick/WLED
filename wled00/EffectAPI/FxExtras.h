@@ -102,12 +102,12 @@ public:
   /** Get color at the given normalized \a index
    * One full range of the color source's spectrum is represented by \c 0.0<=index<=1.0
    */
-  PxColor get_N(NIndex index) { return do_getColor(norm2abs(index, size)); }
+  PxColor get_N(NIndex index) { return do_getColor(norm2abs(index, size - 1)); }
 
   /** Size of the color source's spectrum (in pixels).
    * Higher values stretch the spectrum over a larger range for \c index, lower values squeeze it.
    */
-  AIndex size;
+  int size;
 
 protected:
   // no impact on child's copy & move policy
@@ -120,7 +120,7 @@ protected:
   /** Constructor.
    * @param size Size of the color source's spectrum (in pixels).
    */
-  explicit ColorSource(AIndex size_) : size{size_} {}
+  explicit ColorSource(int size_) : size{size_} {}
 
   /** Get color at the given absolute \a index
    * @see constrainedIndex()
@@ -150,7 +150,7 @@ public:
    * @param size Size of the color spectrum (in pixels).
    *             0 uses the entire segment for one full range of the rainpow (or palette).
    */
-  explicit RainbowColorSource(FxEnv &env, AIndex size = 0)
+  explicit RainbowColorSource(FxEnv &env, int size = 0)
       : ColorSource(size ? size : env.seglen()), _env{env} {}
 
   /// Brightness of the color.
@@ -165,7 +165,7 @@ public:
   /** Set the \c offset (normalized version).
    * A value of 0.5 for example sets the \c offset to half the spectrum's size.
    */
-  void setOffset_N(NIndex offset) { this->offset = norm2abs(offset, size); }
+  void setOffset_N(NIndex offset) { this->offset = norm2abs(offset, size - 1); }
 
 private:
   /// @see ColorSource::do_getColor()

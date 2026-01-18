@@ -82,10 +82,51 @@ void PxArray::do_blendColor(PxColor color, uint8_t blend)
     setColor(pos, getColor(pos).blendColor(color, blend));
 }
 
-void PxArray::do_blur(uint8_t blurAmount, bool smear)
+// ported from Segment::blur()
+void PxArray::do_blur(uint8_t blur_amount, bool smear)
 {
-  // implement me
-  // see Segment::blur()
+  if (blur_amount == 0)
+    return; // optimization: 0 means "don't blur"
+
+  const uint8_t keep = smear ? 255 : 255 - blur_amount;
+  const uint8_t seep = blur_amount >> 1;
+
+  // handle first pixel to avoid conditional in loop (faster)
+  PxColor cur = do_getColor(0);
+  PxColor carryover = fastFadeColor(cur, seep);
+  do_setColor(0, fastFadeColor(cur, keep));
+
+  for (int i = 1; i < _size; ++i)
+  {
+    cur = do_getColor(i);
+    const PxColor part = fastFadeColor(cur, seep);
+
+    cur.fastFade(keep);
+    cur.addColor(carryover);
+    do_setColor(i - 1, do_getColor(i - 1).addColor(part)); // previous pixel
+    do_setColor(i, cur);                                   // current pixel
+    carryover = part;
+  }
+
+#if (0) // original from Segment::blur()
+  uint8_t keep = smear ? 255 : 255 - blur_amount;
+  uint8_t seep = blur_amount >> 1;
+  unsigned vlength = vLength();
+  // handle first pixel to avoid conditional in loop (faster)
+  uint32_t cur = getPixelColorRaw(0);
+  uint32_t carryover = fast_color_scale(cur, seep);
+  setPixelColorRaw(0, fast_color_scale(cur, keep));
+  for (unsigned i = 1; i < vlength; i++)
+  {
+    cur = getPixelColorRaw(i);
+    uint32_t part = fast_color_scale(cur, seep);
+    cur = fast_color_scale(cur, keep);
+    cur = color_add(cur, carryover);
+    setPixelColorRaw(i - 1, color_add(getPixelColorRaw(i - 1), part)); // previous pixel
+    setPixelColorRaw(i, cur);                                          // current pixel
+    carryover = part;
+  }
+#endif
 }
 
 bool constrainRange(const PxArray &pxa, AIndex &firstPos, AIndex &lastPos)

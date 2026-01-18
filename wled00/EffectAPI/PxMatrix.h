@@ -36,6 +36,12 @@ struct NPoint
   NIndex y;
 };
 
+/// Convert the given normalized position into its corresponding absolute position (2D version).
+inline APoint norm2abs(NPoint pos, AIndex refIndexX, AIndex refIndexY)
+{
+  return {norm2abs(pos.x, refIndexX), norm2abs(pos.y, refIndexY)};
+}
+
 //--------------------------------------------------------------------------------------------------
 class PxMatrixPixelProxy;
 class PxMatrixRow;
@@ -104,12 +110,7 @@ public:
   // ----- methods using normalized pixel positions -----
 
   /// Convert the given normalized position into its corresponding absolute position.
-  APoint toAbs(NPoint pos) const
-  {
-    const NIndex posX_n = round(pos.x * (_sizeX - 1));
-    const NIndex posY_n = round(pos.y * (_sizeY - 1));
-    return APoint{static_cast<AIndex>(posX_n), static_cast<AIndex>(posY_n)};
-  }
+  APoint toAbs(NPoint pos) const { return norm2abs(pos, _sizeX - 1, _sizeY - 1); }
 
   /// Like setColor() - but with normalized position.
   void setColor_N(NPoint pos, PxColor color) { do_setColor(toAbs(pos), color); }
@@ -193,11 +194,11 @@ public:
 
 protected:
   PxMatrix(const PxMatrix &) = default;
-  explicit PxMatrix(AIndex sizeX, AIndex sizeY) : _sizeX(sizeX), _sizeY(sizeY) {}
+  explicit PxMatrix(int sizeX, int sizeY) : _sizeX(sizeX), _sizeY(sizeY) {}
   ~PxMatrix() = default;
 
   /// Call this method when the segment's dimension has changed.
-  void updateSize(AIndex newSizeX, AIndex newSizeY)
+  void updateSize(int newSizeX, int newSizeY)
   {
     _sizeX = newSizeX;
     _sizeY = newSizeY;
@@ -254,8 +255,8 @@ protected:
   virtual void do_blurXY(uint8_t blurAmountX, uint8_t blurAmountY, bool smear);
 
 private:
-  AIndex _sizeX;
-  AIndex _sizeY;
+  int _sizeX;
+  int _sizeY;
 };
 
 /// Helper function to iterate over all pixels of a matrix (typically via lambda).
@@ -339,7 +340,7 @@ class PxMatrixRow final : public PxArray
 {
 public:
   /// Only used internally.
-  PxMatrixRow(PxMatrix &parent, int matrixSizeX, int matrixIndexY)
+  PxMatrixRow(PxMatrix &parent, int matrixSizeX, AIndex matrixIndexY)
       : PxArray{matrixSizeX}, _posY{matrixIndexY}, _parent{parent} {}
 
 private:
@@ -362,7 +363,7 @@ class PxMatrixColumn final : public PxArray
 {
 public:
   /// Only used internally.
-  PxMatrixColumn(PxMatrix &parent, int matrixIndexX, int matrixSizeY)
+  PxMatrixColumn(PxMatrix &parent, AIndex matrixIndexX, int matrixSizeY)
       : PxArray{matrixSizeY}, _posX{matrixIndexX}, _parent{parent} {}
 
 private:
