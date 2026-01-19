@@ -893,42 +893,46 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;
 /*
  * Android loading circle, refactored by @dedehai
  */
-uint16_t mode_android(void) {
-  if (!SEGENV.allocateData(sizeof(uint32_t))) return mode_static();
-  uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
-  unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
-  unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
-  if(strip.now >= SEGENV.step) {
-    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
-    if (size > (SEGMENT.intensity * SEGLEN) / 255)
+void fx_android(FxEnv& env) {
+  FxConfig& ui = env.ui();
+  Segment& seg = env.seg();
+  Segenv& segenv = env.segenv();
+
+  // bind persistent data
+  uint32_t& counter   = segenv.buffer[0].uint32_0;
+  uint32_t& trigger   = segenv.buffer[1].uint32_0;
+  uint16_t& start     = segenv.buffer[2].uint16_0;
+  uint16_t& size      = segenv.buffer[2].uint16_1;
+  auto      shrinking = segenv.buffer[3].bits[0];  // this is a reference to one single bit
+
+  if(env.now() >= trigger) {
+    trigger = env.now() + 3 + ((8 * (uint32_t)(255 - ui.speed())) / env.seglen());
+    if (size > (ui.intensity() * env.seglen()) / 255)
       shrinking = 1;
     else if (size < 2)
       shrinking = 0;
     if (!shrinking) { // growing
-      if ((*counter % 3) == 1)
-        SEGENV.aux0++; // advance start position
+      if ((counter % 3) == 1)
+        start++; // advance start position
       else
         size++;
     } else { // shrinking
-      SEGENV.aux0++;
-      if ((*counter % 3) != 1)
+      start++;
+      if ((counter % 3) != 1)
         size--;
     }
-    SEGENV.aux1 = size << 1 | shrinking; // save back
-    (*counter)++;
-    if (SEGENV.aux0 >= SEGLEN) SEGENV.aux0 = 0;
+    counter++;
+    if (start >= env.seglen()) start = 0;
   }
-  uint32_t start = SEGENV.aux0;
-  uint32_t end = (SEGENV.aux0 + size) % SEGLEN;
-  for (unsigned i = 0; i < SEGLEN; i++) {
+  uint32_t end = (start + size) % env.seglen();
+  for (unsigned i = 0; i < env.seglen(); i++) {
     if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
+      seg.setPixelColor(i, ui.fxColor());
     else
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+      seg.setPixelColor(i, color_from_palette(env, i, true, PALETTE_SOLID_WRAP, 1));
   }
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=1"; //vertical
+static const char _data_FX_MODE_ANDROID[] PROGMEM = "!Android@!,Width;!,!;!;;m12=1"; //vertical
 
 /*
  * color chase function.
@@ -2037,22 +2041,26 @@ static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!;;pa
 
 
 //eight colored dots, weaving in and out of sync with each other
-uint16_t mode_juggle(void) {
-  if (SEGLEN <= 1) return mode_static();
+void fx_juggle(FxEnv& env) {
+  FxConfig& ui = env.ui();
+  Segment& seg = env.seg();
 
-  SEGMENT.fadeToBlackBy(192 - (3*SEGMENT.intensity/4));
+  if (env.seglen() <= 1) { env.showFallbackEffect(); return; }
+
+  if(env.mustFade())  // make fading independent from FPS
+    seg.fadeToBlackBy(192 - (3*ui.intensity()/4));
+
   CRGB fastled_col;
   byte dothue = 0;
   for (int i = 0; i < 8; i++) {
-    int index = 0 + beatsin88_t((16 + SEGMENT.speed)*(i + 7), 0, SEGLEN -1);
-    fastled_col = CRGB(SEGMENT.getPixelColor(index));
-    fastled_col |= (SEGMENT.palette==0)?CHSV(dothue, 220, 255):CRGB(ColorFromPalette(SEGPALETTE, dothue, 255));
-    SEGMENT.setPixelColor(index, fastled_col);
+    int index = 0 + beatsin88_t((16 + ui.speed())*(i + 7), 0, env.seglen() -1);
+    fastled_col = CRGB(seg.getPixelColor(index));
+    fastled_col |= (ui.paletteNr()==0)?CHSV(dothue, 220, 255):CRGB(ColorFromPalette(env.currentPalette(), dothue, 255));
+    seg.setPixelColor(index, fastled_col);
     dothue += 32;
   }
-  return FRAMETIME;
 }
-static const char _data_FX_MODE_JUGGLE[] PROGMEM = "Juggle@!,Trail;;!;;sx=64,ix=128";
+static const char _data_FX_MODE_JUGGLE[] PROGMEM = "!Juggle@!,Trail;;!;;sx=64,ix=128";
 
 
 uint16_t mode_palette() {
@@ -11010,14 +11018,16 @@ void fx_ColorClouds(FxEnv& env)
   Segment& seg = env.seg();
   Segenv& segenv = env.segenv();
 
+  // Start points are persistent in segenv.
+  uint32_t& volX0 = segenv.buffer[0].uint32_0;
+  uint32_t& hueX0 = segenv.buffer[1].uint32_0;
+
   // Set random start points for clouds and color.
   if(env.isFistFrame()) {
-    segenv.aux0 = hw_random16();
-    segenv.aux1 = hw_random16();
+    volX0 = hw_random16();
+    hueX0 = hw_random16();
   }
-  const uint32_t volX0 = segenv.aux0;
-  const uint32_t hueX0 = segenv.aux1;
-  const uint8_t hueOffset0 = volX0 + hueX0;
+  const uint8_t hueOffset0 = volX0 + hueX0;  // derive a 3rd random number
 
   // Put more emphasis on the red'ish colors when true (or begin & end of palette).
   const bool moreRed = ui.check3();
@@ -11113,6 +11123,47 @@ static const char _data_FX_MODE_TWINKLE_org[] PROGMEM = "!Twinkle org@!,!;!,!;!;
 
 
 /*
+ * Android loading circle, refactored by @dedehai
+ */
+uint16_t mode_android(void) {
+  if (!SEGENV.allocateData(sizeof(uint32_t))) return mode_static();
+  uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
+  unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
+  unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
+  if(strip.now >= SEGENV.step) {
+    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+    if (size > (SEGMENT.intensity * SEGLEN) / 255)
+      shrinking = 1;
+    else if (size < 2)
+      shrinking = 0;
+    if (!shrinking) { // growing
+      if ((*counter % 3) == 1)
+        SEGENV.aux0++; // advance start position
+      else
+        size++;
+    } else { // shrinking
+      SEGENV.aux0++;
+      if ((*counter % 3) != 1)
+        size--;
+    }
+    SEGENV.aux1 = size << 1 | shrinking; // save back
+    (*counter)++;
+    if (SEGENV.aux0 >= SEGLEN) SEGENV.aux0 = 0;
+  }
+  uint32_t start = SEGENV.aux0;
+  uint32_t end = (SEGENV.aux0 + size) % SEGLEN;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
+      SEGMENT.setPixelColor(i, SEGCOLOR(0));
+    else
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_ANDROID_org[] PROGMEM = "!Android org@!,Width;!,!;!;;m12=1"; //vertical
+
+
+/*
 / Plasma Effect
 / adapted from https://github.com/atuline/FastLED-Demos/blob/master/plasma/plasma.ino
 */
@@ -11172,6 +11223,25 @@ uint16_t mode_aurora(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_AURORA_org[] PROGMEM = "!Aurora org@!,!;1,2,3;!;;sx=24,pal=50";
+
+
+//eight colored dots, weaving in and out of sync with each other
+uint16_t mode_juggle(void) {
+  if (SEGLEN <= 1) return mode_static();
+
+  SEGMENT.fadeToBlackBy(192 - (3*SEGMENT.intensity/4));
+  CRGB fastled_col;
+  byte dothue = 0;
+  for (int i = 0; i < 8; i++) {
+    int index = 0 + beatsin88_t((16 + SEGMENT.speed)*(i + 7), 0, SEGLEN -1);
+    fastled_col = CRGB(SEGMENT.getPixelColor(index));
+    fastled_col |= (SEGMENT.palette==0)?CHSV(dothue, 220, 255):CRGB(ColorFromPalette(SEGPALETTE, dothue, 255));
+    SEGMENT.setPixelColor(index, fastled_col);
+    dothue += 32;
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_JUGGLE_org[] PROGMEM = "!Juggle org@!,Trail;;!;;sx=64,ix=128";
 
 
 uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
@@ -11534,7 +11604,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_STROBE_RAINBOW, &mode_strobe_rainbow, _data_FX_MODE_STROBE_RAINBOW);
   addEffect(FX_MODE_MULTI_STROBE, &mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
   addModeFunction<mode_blink_rainbow>(*this, FX_MODE_BLINK_RAINBOW, _data_FX_MODE_BLINK_RAINBOW);
-  addModeFunction<mode_android>(*this, FX_MODE_ANDROID, _data_FX_MODE_ANDROID);
+  addEffectFunction<fx_android>(*this, FX_MODE_ANDROID, _data_FX_MODE_ANDROID);
   addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
   addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
   addEffect(FX_MODE_CHASE_RAINBOW, &mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
@@ -11571,7 +11641,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
   addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
-  addEffect(FX_MODE_JUGGLE, &mode_juggle, _data_FX_MODE_JUGGLE);
+  addEffectFunction<fx_juggle>(*this, FX_MODE_JUGGLE, _data_FX_MODE_JUGGLE);
   addEffect(FX_MODE_PALETTE, &mode_palette, _data_FX_MODE_PALETTE);
   addModeFunction<mode_bpm>(*this, FX_MODE_BPM, _data_FX_MODE_BPM);
   addEffect(FX_MODE_FILLNOISE8, &mode_fillnoise8, _data_FX_MODE_FILLNOISE8);
@@ -11752,7 +11822,9 @@ addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 addEffectFunction<fx_ColorClouds>(*this, 218, _data_FX_MODE_COLORCLOUDS_org);
 addEffectFunction<fx_broken>(*this, 255, "Broken");
 addEffect(255, mode_twinkle, _data_FX_MODE_TWINKLE_org);
+addEffect(255, mode_android, _data_FX_MODE_ANDROID_org);
 addEffect(255, mode_aurora, _data_FX_MODE_AURORA_org);
+addEffect(255, mode_juggle, _data_FX_MODE_JUGGLE_org);
 addEffect(255, mode_plasma, _data_FX_MODE_PLASMA_org);
 addEffect(255, mode_plasmoid, _data_FX_MODE_PLASMOID_org);
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
