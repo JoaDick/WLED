@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "FX.h"
+#include "FxHelper.h"
 
 //--------------------------------------------------------------------------------------------------
 
@@ -41,20 +42,52 @@ public:
    */
   const uint32_t &call = _call;
 
-  /** Custom "step" variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.step
+  /** Buffer for storing persistent effect data with different datatypes.
+   * All members are initialized with 0.
    */
-  uint32_t step = 0;
+  union
+  {
+    /** Alternative to step/aux0/aux1 with much more options apout the desired datatype.
+     * Do never use both at the same time! \n
+     * Tipp for effect functions: binding a reference variable on the stack to an entry of this
+     * buffer provides the look and feel almost like a class member variable:
+     * @code
+     * void fx_MyEffect(FxEnv &env)
+     * {
+     *   Segenv& segenv = env.segenv();
+     *   int32_t& lastPosition = segenv.buffer[0].int32_0;
+     *   // ... calculate a new position ...
+     *   lastPosition = newPosition; // remember position for next frame
+     * }
+     * @endcode
+     * This method will hopefully replace the need for allocating e.g. single integers via
+     * \c SEGENV.allocateData() on the heap!
+     * @note Only one union member of each array entry can be used at the same time!
+     * For example, either float_0 \e or int16_0 and int16_1 \e or uint8_0 ... uint8_3 \e or bit_0 ... bit_n
+     */
+    BufferUnion buffer[8];
 
-  /** Custom variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.aux0
-   */
-  uint16_t aux0 = 0;
+    struct
+    {
+      /** Custom "step" variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.step
+       * Nevertheless, consider using \c buffer instead.
+       */
+      uint32_t step;
 
-  /** Custom variable.
-   * @note Effect implementations shall use this instead of \c SEGENV.aux1
-   */
-  uint16_t aux1 = 0;
+      /** Custom variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.aux0
+       * Nevertheless, consider using \c buffer instead.
+       */
+      uint16_t aux0;
+
+      /** Custom variable.
+       * @note Effect implementations shall use this instead of \c SEGENV.aux1
+       * Nevertheless, consider using \c buffer instead.
+       */
+      uint16_t aux1;
+    };
+  };
 
   /** EXPERIMENTAL
    * ...
@@ -182,7 +215,7 @@ public:
   void reset();
 
 protected:
-  Segenv() = default;
+  Segenv() : buffer{} {};
   Segenv(const Segenv &other);
   ~Segenv() { deallocateData(); }
 

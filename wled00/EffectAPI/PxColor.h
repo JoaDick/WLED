@@ -2,7 +2,7 @@
  * Interfaces and helper classes for class-based WLED effects.
  *
  * @file This file provides a general abstraction for color handling.
- * 
+ *
  * (c) 2026 Joachim Dick
  * Licensed under the EUPL v. 1.2 or later
  */
@@ -58,6 +58,9 @@ struct PxColor
 
   /// Make this color black.
   void clear() { raw = 0; }
+
+  /// Check if this color is black.
+  bool isBlack() const { return raw == 0; }
 
   // ----- RGB access -----
 

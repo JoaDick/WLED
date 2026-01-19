@@ -17,8 +17,8 @@ class EffectAdapter;
 using EffectAdapterPtr = std::unique_ptr<EffectAdapter>;
 
 /// Internal use only.
-/// Arguments for creating a new EffectAdapter.
-struct EffectInitData
+/// Setup data for creating a new EffectAdapter.
+struct EffectAdapterSetup
 {
   Segment *seg; //< The segment wo work on.
   uint32_t now; //< The current timestamp (in ms).
@@ -121,7 +121,7 @@ public:
 private:
   void updateSegment(Segment &seg);
 
-  EffectInitData _fxData;
+  EffectAdapterSetup _fxData;
   EffectAdapterPtr _fxAdapter;
 };
 

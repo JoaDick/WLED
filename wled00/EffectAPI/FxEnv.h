@@ -12,6 +12,7 @@
 #include "FX.h"
 #include "FXparticleSystem.h"
 #include "FxConfig.h"
+#include "FxHelper.h"
 #include "PxColor.h"
 #include "Segenv.h"
 
@@ -189,6 +190,16 @@ public:
 
   // ----- effect related methods -----
 
+  /** Check if the effect's background has to be faded (or blended or whatever).
+   * This method returns \c true roughly 50 times per second. Only one trigger is emitted per frame.
+   * Tipp: Use your own instances of the underlying PeriodicTrigger helper class in case your effect
+   * algorithm requires multiple different trigger periods.
+   * @note When using this feature, the effect's fading behaviour becomes mostly independent from
+   * the FPS setting in the UI. Without this, effects usually fade faster with higher FPS.
+   */
+  bool mustFade() { return _fadingTrigger.check(_now); }
+  void setFadingTrigger_FPS(uint8_t fps) { _fadingTrigger.set_FPS(fps); } // 0 = off
+
   /** Mark the effect as non-functional.
    * Can be called when something went terribly wrong, and the effect is no more working.
    * @note The effect's rendering function will no more be called after this!
@@ -269,6 +280,7 @@ private:
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
   ParticleSystem2D *_partSys_2D = nullptr;
 #endif
+  PeriodicTrigger _fadingTrigger{1000 / 50}; // default: 50 FPS
   uint32_t _now = 0;
   uint32_t _age = 0;
   uint32_t _deltaT = 0;

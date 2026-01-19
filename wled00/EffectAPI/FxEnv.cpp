@@ -109,10 +109,16 @@ void fx_broken(FxEnv &env)
   Segment &seg = env.seg();
   seg.clear();
 
+  const PxColor c1 = env.ui().fxColor();
+  if (env.seglen() < 50)
+  {
+    seg.fill(c1);
+    return;
+  }
+
   const int p1 = beatsin16_t(13 << 6, 0, env.seglen() - 1);
   const int p2 = beatsin16_t(11 << 6, 0, env.seglen() - 1);
 
-  const PxColor c1 = env.ui().fxColor();
   auto tmp = p1;
   while (tmp < p2)
     seg.setPixelColor(tmp++, c1);

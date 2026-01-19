@@ -124,7 +124,7 @@ protected:
    * @param effect The effect instance to control.
    * Be aware that \a effect is not initialized yet, so don't use it here!
    */
-  EffectAdapter(EffectInitData &data, RawEffectPtr effect) : _fxController{*data.seg, data.now, effect} {}
+  EffectAdapter(EffectAdapterSetup &data, RawEffectPtr effect) : _fxController{*data.seg, data.now, effect} {}
 
   /** Pseudo-copy-constructor.
    * @param other The original instance to copy from.
@@ -159,7 +159,7 @@ class EffectAdapterImpl : public EffectAdapter
 public:
   /// Create an EffectAdapter. All \a fxArgs are forwarded to the constructor of \a FX_CLASS
   template <typename... FX_ARGS>
-  static EffectAdapterPtr create(EffectInitData &data, FX_ARGS &&...fxArgs)
+  static EffectAdapterPtr create(EffectAdapterSetup &data, FX_ARGS &&...fxArgs)
   {
     return EffectAdapterPtr{new (std::nothrow) EffectAdapterImpl(data, std::forward<FX_ARGS>(fxArgs)...)};
   }
@@ -167,7 +167,7 @@ public:
 private:
   /// Constructor. All \a fxArgs are forwarded to the constructor of \a FX_CLASS
   template <typename... FX_ARGS>
-  explicit EffectAdapterImpl(EffectInitData &data, FX_ARGS &&...fxArgs)
+  explicit EffectAdapterImpl(EffectAdapterSetup &data, FX_ARGS &&...fxArgs)
       : EffectAdapter{data, &_effect}, _effect{getFxSetup(), std::forward<FX_ARGS>(fxArgs)...} {}
 
   /// Copy constructor.
