@@ -57,11 +57,11 @@
 
 DHT_nonblocking dht_sensor(DHTPIN, DHTTYPE);
 
-class UsermodDHT : public Usermod {
+class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySensor {
   private:
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    float humidity, temperature = 0;
+    float humidity, tempC, temperature = 0;
     bool initializing = true;
     bool disabled = false;
     #ifdef USERMOD_DHT_MQTT
@@ -89,6 +89,8 @@ class UsermodDHT : public Usermod {
       #ifdef USERMOD_DHT_STATS
       nextResetStatsTime = millis() + 60*60*1000;
       #endif
+      pluginManager.registerTemperatureSensor(*this, "DHT");
+      pluginManager.registerHumiditySensor(*this, "DHT");
     }
 
     void loop() {
@@ -112,7 +114,6 @@ class UsermodDHT : public Usermod {
       }
       #endif
 
-      float tempC;
       if (dht_sensor.measure(&tempC, &humidity)) {
         #ifdef USERMOD_DHT_CELSIUS
         temperature = tempC;
@@ -242,6 +243,9 @@ class UsermodDHT : public Usermod {
       return USERMOD_ID_DHT;
     }
 
+  private:
+    float do_getTemperatureC() override { return tempC; }
+    float do_getHumidity() override { return humidity; }
 };
 
 

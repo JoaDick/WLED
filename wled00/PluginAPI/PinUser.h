@@ -1,0 +1,75 @@
+/**
+ * (c) 2026 Joachim Dick
+ * Licensed under the EUPL v. 1.2 or later
+ */
+
+#pragma once
+
+//--------------------------------------------------------------------------------------------------
+
+enum class PinType : uint8_t
+{
+  undefined = 0,
+  Digital_in,
+  Digital_out,
+  Analog_in,
+  PWM_out,
+  I2C_scl,
+  I2C_sda,
+  SPI_sclk,
+  SPI_mosi,
+  SPI_miso,
+  OneWire
+};
+
+const char *getPinName(PinType pinType);
+bool isOutputPin(PinType pinType);
+
+/** Properties of a GPIO pin that a plugin wants to use.
+ * @note With the current implementation of WLED, the plugins are responsible for obtaining the pin
+ * numbers from the UI. This "wanted pin to use" shall be specified here.
+ * In a future optimization, this burden can be eliminated completely: \n
+ * The PluginUser leaves this value uninitialized. An appropriate pin number will be assigned by the
+ * PluginManager upon plugin registration. All the UI interaction will then be under full control
+ * of the PluginManager; a PinUser won't have to care about that anymore. \n
+ * Changes in the pin configuration will be announced via \c onPinConfigurationChanged() - as
+ * trigger for the PinUser to re-initialize with the updated pin number from here.
+ */
+struct PinConfig
+{
+  explicit PinConfig(PinType pinType_ = PinType::undefined, const char *pinName_ = nullptr)
+      : pinType{pinType_}, pinName{pinName_} {}
+
+  /// The designated pin number.
+  uint8_t pinNr = 0xFF;
+
+  /// Type of the requested pin.
+  PinType pinType;
+
+  /** Name of the pin (optional).
+   * To be displayed in UI configuration page; it is derived from \c pinType when omitted.
+   * @note Pin names are not deeply copied.
+   * They must remain valid as long as the plugin is registered.
+   */
+  const char *pinName;
+
+  /** Pins are marked as invalid when the plugin registration fails.
+   * The user must assign a different pin number and try to register again.
+   */
+  bool isPinValid() const { return pinNr != 0xFF; }
+  void invalidatePin() { pinNr = 0xFF; }
+};
+
+/// Interface of a plugin that wants to use GPIO pins.
+class PinUser
+{
+#if (0) // only with PluginManager's UI optimization for pin selection
+  /// The pin confuguration (from the UI) has changed. Not implemented yet.
+  virtual void onPinConfigurationChanged() {}
+#else
+  // Intentionally empty.
+  // Any pin users must just have this as base class.
+#endif
+};
+
+//--------------------------------------------------------------------------------------------------

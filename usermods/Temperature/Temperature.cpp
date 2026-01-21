@@ -140,8 +140,8 @@ void UsermodTemperature::setup() {
     if (sensorFound && !initDone) strip.addEffect(255, &mode_temperature, _data_fx);
   }
   lastMeasurement = millis() - readingInterval + 10000;
+  pluginManager.registerTemperatureSensor(*this, _name);
   initDone = true;
-  UsermodManager::registerTemperatureSensor(*this, _name);
 }
 
 void UsermodTemperature::loop() {

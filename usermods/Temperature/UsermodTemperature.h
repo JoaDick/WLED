@@ -71,6 +71,7 @@ class UsermodTemperature : public Usermod, public TemperatureSensor {
 #ifndef WLED_DISABLE_MQTT
     void publishHomeAssistantAutodiscovery();
 #endif
+    float do_getTemperatureC() override { return temperature; }
 
     static UsermodTemperature* _instance; // to overcome nonstatic getTemperatureC() method and avoid UsermodManager::lookup(USERMOD_ID_TEMPERATURE);
 
@@ -87,7 +88,6 @@ class UsermodTemperature : public Usermod, public TemperatureSensor {
     float getTemperature();
     const char *getTemperatureUnit();
     uint16_t getId() override { return USERMOD_ID_TEMPERATURE; }
-    float temperatureC() override { return getTemperatureC(); }
 
     void setup() override;
     void loop() override;

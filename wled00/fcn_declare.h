@@ -2,9 +2,6 @@
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
 
-// Plugin interfaces
-#include "UsermodAPI/TemperatureSensor.h"
-
 /*
  * All globally accessible functions are declared here
  */
@@ -366,10 +363,6 @@ namespace UsermodManager {
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
   size_t getModCount();
-
-  // ----- Usermod plugin stuff -----
-  void registerTemperatureSensor(TemperatureSensor& sensor, const char* name);
-  TemperatureSensor* getTemperatureSensor();
 };
 
 // Register usermods by building a static list via a linker section

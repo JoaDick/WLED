@@ -5,8 +5,6 @@
 
 #include "wled.h"
 
-extern uint16_t mode_static(void);
-
 //--------------------------------------------------------------------------------------------------
 
 /** This is just for my dev setup.
@@ -92,67 +90,26 @@ static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud spee
 
 //--------------------------------------------------------------------------------------------------
 
-/** Example effect for processing the readings of a TemperatureSensor usermod.
- */
-uint16_t mode_UmExampleThermometer()
-{
-  TemperatureSensor *thermometer = UsermodManager::getTemperatureSensor();
-  if (!thermometer)
-    return mode_static();
-
-  SEGMENT.clear();
-
-  const float temperature = thermometer->temperatureC();
-
-  // 20° shall be in the middle
-  int pos = temperature * (SEGLEN - 1) / 40.0f;
-
-  // TODO(feature) Make a fancy animation instead :-D
-  while (pos >= 0)
-    SEGMENT.setPixelColor(pos--, SEGCOLOR(0));
-
-  SEGMENT.setPixelColor(SEGLEN / 4, 0x8080F8);     // 10°C
-  SEGMENT.setPixelColor(SEGLEN / 2, 0xFFFF80);     // 20°C
-  SEGMENT.setPixelColor(SEGLEN * 3 / 4, 0xF88080); // 30°C
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_EX_UM_THERMOMETER[] PROGMEM = "Ex: Thermometer";
-
-//--------------------------------------------------------------------------------------------------
-
-/** TBD
- * @note This usermod doesn't override getId() because it doesn't interact with the outside world.
+/** A usermod for effect examples.
  */
 class UM_FxExamples : public Usermod
 {
   void setup() override
   {
-    // register effects
-    strip.addEffect(218, &mode_ColorClouds, _data_FX_MODE_COLORCLOUDS);
-    strip.addEffect(255, &mode_UmExampleThermometer, _data_FX_MODE_EX_UM_THERMOMETER);
+    registerEffects();
   }
 
   void loop() override
   {
-    processFanControl();
   }
 
-  /// Just an example for custom sensor data processing.
-  void processFanControl()
+  void registerEffects()
   {
-    TemperatureSensor *thermometer = UsermodManager::getTemperatureSensor();
-    if (!thermometer)
-      return;
-
-    const float temperature = thermometer->temperature();
-
-    // TODO(feature) Control the PWM of a fan
-    // see PWM_fan.cpp for inspiration...
+    strip.addEffect(218, &mode_ColorClouds, _data_FX_MODE_COLORCLOUDS);
   }
 };
 
 //--------------------------------------------------------------------------------------------------
 
-static UM_FxExamples _FxExamples;
-REGISTER_USERMOD(_FxExamples);
+static UM_FxExamples um_FxExamples;
+REGISTER_USERMOD(um_FxExamples);
