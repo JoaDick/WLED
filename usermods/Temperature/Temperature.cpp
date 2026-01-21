@@ -141,6 +141,7 @@ void UsermodTemperature::setup() {
   }
   lastMeasurement = millis() - readingInterval + 10000;
   initDone = true;
+  UsermodManager::registerTemperatureSensor(*this, _name);
 }
 
 void UsermodTemperature::loop() {

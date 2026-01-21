@@ -42,7 +42,9 @@ void UsermodManager::addToJsonState(JsonObject& obj)    { for (auto mod = _userm
 void UsermodManager::addToJsonInfo(JsonObject& obj)     {
   auto um_id_list = obj.createNestedArray("um");  
   for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) {
-    um_id_list.add((*mod)->getId());
+    const auto um_id = (*mod)->getId();
+    if(um_id == USERMOD_ID_UNSPECIFIED) continue;
+    um_id_list.add(um_id);
     (*mod)->addToJsonInfo(obj);
   }
 }
@@ -97,4 +99,25 @@ void Usermod::appendConfigData(Print& settingsScript) {
   oappend_shim = &settingsScript;
   this->appendConfigData();
   oappend_shim = nullptr;
+}
+
+// ----- Usermod plugin stuff -----
+namespace UsermodManager {  // btw, why isn't this a class??
+namespace {
+  // TODO(feature) Make this a map<name, sensor>
+  TemperatureSensor* _temperatureSensor = nullptr;
+}
+
+void registerTemperatureSensor(TemperatureSensor& sensor, const char* name){
+  // TODO(feature) Instead of overwriting, store multiple implementations in a map<name, sensor>
+  // Idea: Make that map accessible via UI, and let the user select which sensor to use (as default).
+  _temperatureSensor = &sensor;
+}
+
+TemperatureSensor* getTemperatureSensor(){
+  // TODO(feature) Pick a UI selectable sensor from map<name, sensor>
+  // If only one sensor is present, return that one (without involving the UI).
+  return _temperatureSensor;
+}
+
 }

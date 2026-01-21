@@ -16,7 +16,7 @@
 #define USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL 60000
 #endif
 
-class UsermodTemperature : public Usermod {
+class UsermodTemperature : public Usermod, public TemperatureSensor {
 
   private:
 
@@ -87,6 +87,7 @@ class UsermodTemperature : public Usermod {
     float getTemperature();
     const char *getTemperatureUnit();
     uint16_t getId() override { return USERMOD_ID_TEMPERATURE; }
+    float temperatureC() override { return getTemperatureC(); }
 
     void setup() override;
     void loop() override;
@@ -107,4 +108,3 @@ class UsermodTemperature : public Usermod {
 
     void appendConfigData() override;
 };
-
