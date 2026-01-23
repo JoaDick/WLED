@@ -3,6 +3,7 @@
  * Licensed under the EUPL v. 1.2 or later
  */
 
+#include <algorithm>
 #include "wled.h"
 #include "PluginManager.h"
 
@@ -75,10 +76,10 @@ bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *
       return rollbackPinRegistration(user, pinCount, pinConfig);
     if (!PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr))
       return rollbackPinRegistration(user, pinCount, pinConfig);
-    _pinUserConfigs.insert({&user, *itr});
+    _pinUserConfigs.emplace_back(&user, *itr);
   }
 
-  _pinUsers[&user] = pluginName;
+  _pinUsers.emplace_back(&user, pluginName);
   return true;
 }
 
@@ -94,46 +95,57 @@ bool PluginManager::rollbackPinRegistration(PinUser &user, uint8_t pinCount, Pin
 
 void PluginManager::unregisterPinUser(PinUser &user)
 {
-  const auto configs = _pinUserConfigs.equal_range(&user);
-  for (auto itr = configs.first; itr != configs.second; ++itr)
+  for (const auto &entry : _pinUserConfigs)
   {
-    const auto &pinConfig = itr->second;
+    const auto &pinConfig = entry.second;
     PinManager::deallocatePin(pinConfig.pinNr, PinOwner::PluginMgr);
   }
-  _pinUserConfigs.erase(&user);
-  _pinUsers.erase(&user);
+
+  auto pred1 = [&user](const PinUserConfigs::value_type &entry)
+  { return entry.first == &user; };
+  std::remove_if(_pinUserConfigs.begin(), _pinUserConfigs.end(), pred1);
+
+  auto pred2 = [&user](const PinUsers::value_type &entry)
+  { return entry.first == &user; };
+  std::remove_if(_pinUsers.begin(), _pinUsers.end(), pred2);
 }
 
 void PluginManager::registerTemperatureSensor(TemperatureSensor &sensor, const char *pluginName)
 {
-  _temperatureSensors[&sensor] = pluginName;
+  unregisterTemperatureSensor(sensor);
+  _temperatureSensors.emplace_back(&sensor, pluginName);
 }
 
 void PluginManager::unregisterTemperatureSensor(TemperatureSensor &sensor)
 {
-  _temperatureSensors.erase(&sensor);
+  auto pred = [&sensor](const TemperatureSensors::value_type &entry)
+  { return entry.first == &sensor; };
+  std::remove_if(_temperatureSensors.begin(), _temperatureSensors.end(), pred);
 }
 
 TemperatureSensor *PluginManager::getTemperatureSensor()
 {
-  // TODO(feature) Pick a UI selectable default sensor from the map
-  return _temperatureSensors.empty() ? nullptr : _temperatureSensors.begin()->first;
+  // TODO(feature) Select a default sensor via UI and return that one.
+  return _temperatureSensors.empty() ? nullptr : _temperatureSensors.front().first;
 }
 
 void PluginManager::registerHumiditySensor(HumiditySensor &sensor, const char *pluginName)
 {
-  _humiditySensors[&sensor] = pluginName;
+  unregisterHumiditySensor(sensor);
+  _humiditySensors.emplace_back(&sensor, pluginName);
 }
 
 void PluginManager::unregisterHumiditySensor(HumiditySensor &sensor)
 {
-  _humiditySensors.erase(&sensor);
+  auto pred = [&sensor](const HumiditySensors::value_type &entry)
+  { return entry.first == &sensor; };
+  std::remove_if(_humiditySensors.begin(), _humiditySensors.end(), pred);
 }
 
 HumiditySensor *PluginManager::getHumiditySensor()
 {
-  // TODO(feature) Pick a UI selectable default sensor from the map
-  return _humiditySensors.empty() ? nullptr : _humiditySensors.begin()->first;
+  // TODO(feature) Select a default sensor via UI and return that one.
+  return _humiditySensors.empty() ? nullptr : _humiditySensors.front().first;
 }
 
 //--------------------------------------------------------------------------------------------------

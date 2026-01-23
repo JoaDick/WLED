@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <map>
+#include <vector>
 
 #include "PinUser.h"
 #include "HumiditySensor.h"
@@ -71,14 +71,18 @@ public:
 private:
   bool rollbackPinRegistration(PinUser &user, uint8_t pinCount, PinConfig *pinConfig);
 
-  // TODO(optimization) To save precious DRAM, use a std::pmr::map/multimap with a memory resource
+  // TODO(optimization) To save precious DRAM, use a std::pmr::vector with a memory resource
   // that allocates PSRAM instead. Unfortunately, that is a C++17 feature...
-  std::map<PinUser *, const char *> _pinUsers;
-  std::multimap<PinUser *, PinConfig> _pinUserConfigs;
+  using PinUsers = std::vector<std::pair<PinUser *, const char *>>;
+  using PinUserConfigs = std::vector<std::pair<PinUser *, PinConfig>>; // yes, we store a _copy_ of the config!
+  PinUsers _pinUsers;
+  PinUserConfigs _pinUserConfigs;
 
-  std::map<TemperatureSensor *, const char *> _temperatureSensors;
+  using TemperatureSensors = std::vector<std::pair<TemperatureSensor *, const char *>>;
+  TemperatureSensors _temperatureSensors;
 
-  std::map<HumiditySensor *, const char *> _humiditySensors;
+  using HumiditySensors = std::vector<std::pair<HumiditySensor *, const char *>>;
+  HumiditySensors _humiditySensors;
 };
 
 /// The global PluginManager instance.
