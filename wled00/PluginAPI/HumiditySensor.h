@@ -11,11 +11,11 @@
 class HumiditySensor
 {
 public:
-  /// Get the humidity in %
+  /// Get the humidity in % rel.
   float humidity() { return do_getHumidity(); }
 
 protected:
-  /// Get the plugin's humidity reading in %
+  /// Get the plugin's humidity reading in % rel.
   virtual float do_getHumidity() = 0;
 };
 

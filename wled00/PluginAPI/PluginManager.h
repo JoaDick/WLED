@@ -28,7 +28,7 @@ public:
   // ----- PinUser plugins -----
 
   /** Try to register the desired pins of a plugin.
-   * @note Use this method also fur updating the pin configuration (even if already registered).
+   * @note Use this method also for updating the pin configuration (even if already registered).
    */
   bool registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *pinConfig, const char *pluginName);
 
@@ -49,11 +49,11 @@ public:
   /// Revoke a plugin's registration as TemperatureSensor.
   void unregisterTemperatureSensor(TemperatureSensor &sensor);
 
-  /// Get a registered TemperatureSensor or \c nullptr if there are none.
+  /// Get a registered TemperatureSensor, or \c nullptr if there is none.
   TemperatureSensor *getTemperatureSensor();
 
   /** Globally set the unit for \c TemperatureSensor::temperature() - default is °C
-   * @see This setting should only be configured via UI.
+   * @see This setting should only be configured via UI, and not via usermod or effect.
    */
   static void setUseFahrenheit(bool enabled);
 
@@ -65,7 +65,7 @@ public:
   /// Revoke a plugin's registration as HumiditySensor.
   void unregisterHumiditySensor(HumiditySensor &sensor);
 
-  /// Get a registered HumiditySensor or \c nullptr if there are none.
+  /// Get a registered HumiditySensor, or \c nullptr if there is none.
   HumiditySensor *getHumiditySensor();
 
 private:

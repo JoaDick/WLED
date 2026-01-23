@@ -73,7 +73,7 @@ bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *
       itr->pinName = getPinName(itr->pinType);
     if (!itr->isPinValid())
       return rollbackPinRegistration(user, pinCount, pinConfig);
-    if (PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr) == false)
+    if (!PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr))
       return rollbackPinRegistration(user, pinCount, pinConfig);
     _pinUserConfigs.insert({&user, *itr});
   }

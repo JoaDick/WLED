@@ -4,28 +4,72 @@
  */
 
 #include "wled.h"
+#include "PluginAPI/custom/DummySensor/DummySensor.h"
 
 //--------------------------------------------------------------------------------------------------
 
 /** Dummy usermod implementation that simulates random sensor readings.
  * @note This usermod doesn't override getId() because it doesn't directly interact with the outside world.
  */
-class UM_DummySensor : public Usermod, public TemperatureSensor, public HumiditySensor
+class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSensor, public HumiditySensor
 {
+  // ----- usermod functions -----
+
   void setup() override
   {
     // register sensor plugins
     pluginManager.registerTemperatureSensor(*this, "Dummy");
-    pluginManager.registerHumiditySensor(*this, "Dummy");
+    enableTemperatureSensor();
+    enableHumiditySensor();
   }
 
   void loop() override {}
 
+  // ----- DummySensor (our own) plugin functions -----
+
+  void enableTemperatureSensor() override
+  {
+    if (!_isTemperatureSensorEnabled)
+      pluginManager.registerTemperatureSensor(*this, "Dummy");
+    _isTemperatureSensorEnabled = true;
+  }
+
+  void disableTemperatureSensor() override
+  {
+    if (_isTemperatureSensorEnabled)
+      pluginManager.unregisterTemperatureSensor(*this);
+    _isTemperatureSensorEnabled = false;
+  }
+
+  bool isTemperatureSensorEnabled() override { return _isTemperatureSensorEnabled; }
+
+  void enableHumiditySensor() override
+  {
+    if (!_isHumiditySensorEnabled)
+      pluginManager.registerHumiditySensor(*this, "Dummy");
+    _isHumiditySensorEnabled = true;
+  }
+
+  void disableHumiditySensor() override
+  {
+    if (_isHumiditySensorEnabled)
+      pluginManager.unregisterHumiditySensor(*this);
+    _isHumiditySensorEnabled = false;
+  }
+
+  bool isHumiditySensorEnabled() override { return _isHumiditySensorEnabled; }
+
+  // ----- TemperatureSensor plugin functions -----
+
   /// @copydoc TemperatureSensor::do_getTemperatureC()
   float do_getTemperatureC() override { return readTemperature(); }
 
+  // ----- HumiditySensor plugin functions -----
+
   /// @copydoc HumiditySensor::do_getHumidityC()
   float do_getHumidity() override { return readHumidity(); }
+
+  // ----- internal processing functions -----
 
   /// The dummy implementation to simulate temperature values (based on perlin noise).
   float readTemperature()
@@ -42,9 +86,15 @@ class UM_DummySensor : public Usermod, public TemperatureSensor, public Humidity
     // simulate some random humidity between 10% and 90%
     return 10.0f + raw / 65535.0f * 80.0f;
   }
+
+  // ----- member variables -----
+
+  bool _isTemperatureSensorEnabled = false;
+  bool _isHumiditySensorEnabled = false;
 };
 
 //--------------------------------------------------------------------------------------------------
 
 static UM_DummySensor um_DummySensor;
 REGISTER_USERMOD(um_DummySensor);
+DEFINE_PLUGIN_API(DummySensor, um_DummySensor);

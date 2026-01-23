@@ -169,6 +169,8 @@ class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySens
 
       if (((millis() - lastReadTime) > 10*USERMOD_DHT_MEASUREMENT_INTERVAL)) {
         disabled = true;
+        pluginManager.unregisterTemperatureSensor(*this);
+        pluginManager.unregisterHumiditySensor(*this);
       }
     }
 

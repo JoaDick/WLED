@@ -7,6 +7,7 @@
 
 //--------------------------------------------------------------------------------------------------
 
+/// Type of GPIO pin.
 enum class PinType : uint8_t
 {
   undefined = 0,
@@ -26,14 +27,16 @@ const char *getPinName(PinType pinType);
 bool isOutputPin(PinType pinType);
 
 /** Properties of a GPIO pin that a plugin wants to use.
- * @note With the current implementation of WLED, the plugins are responsible for obtaining the pin
- * numbers from the UI. This "wanted pin to use" shall be specified here.
+ * @note With the current design of WLED, the PinUser (i.e. the usermod) is responsible for
+ * obtaining the pin numbers from the UI. This "wanted pin to use" shall be specified here.
  * In a future optimization, this burden can be eliminated completely: \n
- * The PluginUser leaves this value uninitialized. An appropriate pin number will be assigned by the
- * PluginManager upon plugin registration. All the UI interaction will then be under full control
- * of the PluginManager; a PinUser won't have to care about that anymore. \n
- * Changes in the pin configuration will be announced via \c onPinConfigurationChanged() - as
- * trigger for the PinUser to re-initialize with the updated pin number from here.
+ * The PinUser leaves the pin number uninitialized. An appropriate pin number will be assigned by
+ * the PluginManager upon registration of the PinUser. All the UI interaction will then be under
+ * full control of the PluginManager; a PinUser won't have to care about that anymore. \n
+ * Changes in the pin configuration (via UI) will be stored directly inside the PinUser's PinConfig
+ * (since the PluginManager keeps track of them), and announced via \c onPinConfigurationChanged()
+ * This callback acts as a trigger for the PinUser to re-initialize with the updated pin numbers
+ * from inside its PinConfig.
  */
 struct PinConfig
 {
@@ -54,7 +57,7 @@ struct PinConfig
   const char *pinName;
 
   /** Pins are marked as invalid when the plugin registration fails.
-   * The user must assign a different pin number and try to register again.
+   * The PinUser must assign a different pin number and try to register again.
    */
   bool isPinValid() const { return pinNr != 0xFF; }
   void invalidatePin() { pinNr = 0xFF; }

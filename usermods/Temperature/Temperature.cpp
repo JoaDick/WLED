@@ -137,10 +137,12 @@ void UsermodTemperature::setup() {
       }
       temperaturePin = -1;  // allocation failed
     }
-    if (sensorFound && !initDone) strip.addEffect(255, &mode_temperature, _data_fx);
+    if (sensorFound && !initDone) {
+      strip.addEffect(255, &mode_temperature, _data_fx);
+      pluginManager.registerTemperatureSensor(*this, _name);
+    }
   }
   lastMeasurement = millis() - readingInterval + 10000;
-  pluginManager.registerTemperatureSensor(*this, _name);
   initDone = true;
 }
 
@@ -166,7 +168,10 @@ void UsermodTemperature::loop() {
   if (now - lastTemperaturesRequest >= 750 /* 93.75ms per the datasheet but can be up to 750ms */) {
     readTemperature();
     if (getTemperatureC() < -100.0f) {
-      if (++errorCount > 10) sensorFound = 0;
+      if (++errorCount > 10) {
+        sensorFound = 0;
+        pluginManager.unregisterTemperatureSensor(*this);
+      }
       lastMeasurement = now - readingInterval + 300; // force new measurement in 300ms
       return;
     }
