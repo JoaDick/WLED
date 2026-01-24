@@ -137,13 +137,11 @@ void UsermodTemperature::setup() {
       }
       temperaturePin = -1;  // allocation failed
     }
-    if (sensorFound && !initDone) {
-      strip.addEffect(255, &mode_temperature, _data_fx);
-      pluginManager.registerTemperatureSensor(*this, _name);
-    }
+    if (sensorFound && !initDone) strip.addEffect(255, &mode_temperature, _data_fx);
   }
   lastMeasurement = millis() - readingInterval + 10000;
   initDone = true;
+  pluginManager.registerTemperatureSensor(*this, _name);
 }
 
 void UsermodTemperature::loop() {
@@ -170,12 +168,13 @@ void UsermodTemperature::loop() {
     if (getTemperatureC() < -100.0f) {
       if (++errorCount > 10) {
         sensorFound = 0;
-        pluginManager.unregisterTemperatureSensor(*this);
+        _isTemperatureValid = false;
       }
       lastMeasurement = now - readingInterval + 300; // force new measurement in 300ms
       return;
     }
     errorCount = 0;
+    _isTemperatureValid = true;
 
 #ifndef WLED_DISABLE_MQTT
     if (WLED_MQTT_CONNECTED) {

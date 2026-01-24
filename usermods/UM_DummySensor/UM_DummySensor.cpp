@@ -8,19 +8,24 @@
 
 //--------------------------------------------------------------------------------------------------
 
+static constexpr char _name[] = "Dummy-Sensor";
+
 /** Dummy usermod implementation that simulates random sensor readings.
  * @note This usermod doesn't override getId() because it doesn't directly interact with the outside world.
  */
 class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSensor, public HumiditySensor
 {
+
   // ----- usermod functions -----
 
   void setup() override
   {
     // register sensor plugins
-    pluginManager.registerTemperatureSensor(*this, "Dummy");
+    pluginManager.registerTemperatureSensor(*this, _name);
     enableTemperatureSensor();
     enableHumiditySensor();
+    _isTemperatureValid = true;
+    _isHumidityValid = true;
   }
 
   void loop() override {}
@@ -30,7 +35,7 @@ class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSen
   void enableTemperatureSensor() override
   {
     if (!_isTemperatureSensorEnabled)
-      pluginManager.registerTemperatureSensor(*this, "Dummy");
+      pluginManager.registerTemperatureSensor(*this, _name);
     _isTemperatureSensorEnabled = true;
   }
 
@@ -46,7 +51,7 @@ class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSen
   void enableHumiditySensor() override
   {
     if (!_isHumiditySensorEnabled)
-      pluginManager.registerHumiditySensor(*this, "Dummy");
+      pluginManager.registerHumiditySensor(*this, _name);
     _isHumiditySensorEnabled = true;
   }
 

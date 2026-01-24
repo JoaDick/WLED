@@ -58,7 +58,7 @@ uint16_t mode_Thermometer()
     return mode_static();
 
   // got a TemperatureSensor? --> draw its reading as a bar
-  if (tempSensor)
+  if (tempSensor && tempSensor->isReady())
   {
     // read the temperature value from the plugin
     const float temp = tempSensor->temperatureC();
@@ -74,7 +74,7 @@ uint16_t mode_Thermometer()
   SEGMENT.setPixelColor(SEGLEN * 3 / 4, 0xF88080); // 30°C
 
   // got a HumiditySensor? --> draw its reading as a dot
-  if (humSensor)
+  if (humSensor && humSensor->isReady())
   {
     // read the humidity value from the plugin (if one exists)
     const float hum = humSensor->humidity();
@@ -88,6 +88,8 @@ uint16_t mode_Thermometer()
 static const char _data_FX_MODE_EX_UM_THERMOMETER[] PROGMEM = "Ex: Thermometer@,,,,,,Humidity Dummy,Temperature Dummy;!;;o2=1,o3=1";
 
 //--------------------------------------------------------------------------------------------------
+
+static constexpr char _name[] = "Demo-Plugin";
 
 /** A usermod for plugin examples.
  */
@@ -115,10 +117,10 @@ class UM_PluginDemo : public Usermod, public PinUser
 
   void registerPins()
   {
-    _pinConfig.pinNr = DEFAULT_PIN;
-    if (pluginManager.registerPinUser(*this, _pinConfig, "PluginDemo"))
+    _pinConfig[0].pinNr = DEFAULT_PIN;
+    if (pluginManager.registerPinUser(*this, _pinConfig, _name))
     {
-      pinMode(_pinConfig.pinNr, OUTPUT);
+      pinMode(_pinConfig[0].pinNr, OUTPUT);
     }
   }
 
@@ -128,7 +130,7 @@ class UM_PluginDemo : public Usermod, public PinUser
   void processFanControl()
   {
     // bail out if we didn't get a GPIO
-    if (!_pinConfig.isPinValid())
+    if (!_pinConfig[0].isPinValid())
       return;
 
     // try to get a TemperatureSensor - and bail out if that fails
@@ -140,12 +142,26 @@ class UM_PluginDemo : public Usermod, public PinUser
     const float temp = tempSensor->temperatureC();
     // control a connected fan
     const bool isHot = temp > 20.0f;
-    digitalWrite(_pinConfig.pinNr, isHot ? HIGH : LOW);
+    digitalWrite(_pinConfig[0].pinNr, isHot ? HIGH : LOW);
   }
 
   // ----- member variables -----
 
-  PinConfig _pinConfig{PinType::Digital_out, "Relay"};
+  PinConfigs<12> _pinConfig{{{PinType::Digital_out, "Relay"},
+                             // the following are just demo examples:
+                             {PinType::Digital_in},
+                             {PinType::Digital_out},
+                             {PinType::PWM_out},
+                             {PinType::I2C_scl},
+                             {PinType::I2C_sda},
+                             {PinType::OneWire},
+                             {PinType::OneWire, "1W-aux"}, // 2nd bus with different name
+                             {PinType::SPI_miso},
+                             {PinType::SPI_mosi},
+                             {PinType::SPI_sclk},
+                             {PinType::Analog_in}}};
+  // how a single pin configuration would look like:
+  // PinConfig _pinConfig{PinType::Digital_out, "Relay"};
 };
 
 //--------------------------------------------------------------------------------------------------

@@ -25,7 +25,7 @@ public:
   PluginManager &operator=(const PluginManager &) = delete;
   PluginManager() = default;
 
-  // ----- PinUser plugins -----
+  // ----- PinUser handling -----
 
   /** Try to register the desired pins of a plugin.
    * @note Use this method also for updating the pin configuration (even if already registered).
@@ -38,38 +38,52 @@ public:
     return registerPinUser(user, 1, &pinConfig, pluginName);
   }
 
+  /// Convenience method for registering an array of pins.
+  template <size_t NUM_PINS>
+  bool registerPinUser(PinUser &user, std::array<PinConfig, NUM_PINS> &pinConfig, const char *pluginName)
+  {
+    return registerPinUser(user, NUM_PINS, pinConfig.data(), pluginName);
+  }
+
   /// Revoke all of a plugin's registered pins.
   void unregisterPinUser(PinUser &user);
 
-  // ----- TemperatureSensor plugins -----
+  // ----- Sensor handling -----
 
-  /// Register a plugin as a TemperatureSensor.
+  // Register a plugin as a specific sensor.
   void registerTemperatureSensor(TemperatureSensor &sensor, const char *pluginName);
+  void registerHumiditySensor(HumiditySensor &sensor, const char *pluginName);
 
-  /// Revoke a plugin's registration as TemperatureSensor.
+  // Revoke a plugin's registration as specific sensor.
   void unregisterTemperatureSensor(TemperatureSensor &sensor);
+  void unregisterHumiditySensor(HumiditySensor &sensor);
 
-  /// Get a registered TemperatureSensor, or \c nullptr if there is none.
-  TemperatureSensor *getTemperatureSensor();
+  // Get a registered sensor, or nullptr if there is none.
+  TemperatureSensor *getTemperatureSensor(uint8_t index = 0) { return index < _temperatureSensors.size() ? _temperatureSensors[index].first : nullptr; }
+  HumiditySensor *getHumiditySensor(uint8_t index = 0) { return index < _humiditySensors.size() ? _humiditySensors[index].first : nullptr; }
+
+  size_t getTemperatureSensorCount() const { return _temperatureSensors.size(); }
+  size_t getHumiditySensorCount() const { return _humiditySensors.size(); }
+
+  const char *getSensorName(const TemperatureSensor *sensor) const;
+  const char *getSensorName(const HumiditySensor *sensor) const;
+
+  // ----- WLED internal stuff -----
 
   /** Globally set the unit for \c TemperatureSensor::temperature() - default is °C
    * @note This setting should only be configured via UI, and not via usermod or effect.
    */
-  static void setUseFahrenheit(bool enabled);
+  static void setUseFahrenheit(bool enabled) { TemperatureSensor::_useFahrenheit = enabled; }
 
-  // ----- HumiditySensor plugins -----
-
-  /// Register a plugin as a HumiditySensor.
-  void registerHumiditySensor(HumiditySensor &sensor, const char *pluginName);
-
-  /// Revoke a plugin's registration as HumiditySensor.
-  void unregisterHumiditySensor(HumiditySensor &sensor);
-
-  /// Get a registered HumiditySensor, or \c nullptr if there is none.
-  HumiditySensor *getHumiditySensor();
+  void addToJsonInfo(JsonObject &root, bool advanced = true);
 
 private:
   bool rollbackPinRegistration(PinUser &user, uint8_t pinCount, PinConfig *pinConfig);
+  void addUiInfo(JsonObject &root, bool advanced);
+  void addUiInfo_basic(JsonObject &user);
+  void addUiInfo_advanced(JsonObject &user);
+  void addUiInfo_plugins(JsonObject &user);
+  const char *getPluginName(const PinUser *user) const;
 
   // TODO(optimization) To save precious DRAM, use std::pmr::vector with a memory resource that
   // allocates PSRAM instead. Unfortunately, that is a C++17 feature...

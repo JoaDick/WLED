@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <array>
+
 //--------------------------------------------------------------------------------------------------
 
 /// Type of GPIO pin.
@@ -40,7 +42,10 @@ bool isOutputPin(PinType pinType);
  */
 struct PinConfig
 {
-  explicit PinConfig(PinType pinType_ = PinType::undefined, const char *pinName_ = nullptr)
+  // PinConfig() : PinConfig{PinType::undefined, nullptr} {}
+  // /*explicit*/ PinConfig(PinType pinType_) : PinConfig{pinType_, nullptr} {}
+  // PinConfig(PinType pinType_, const char *pinName_) : pinType{pinType_}, pinName{pinName_} {}
+  /*explicit*/ PinConfig(PinType pinType_ = PinType::undefined, const char *pinName_ = nullptr)
       : pinType{pinType_}, pinName{pinName_} {}
 
   /// The designated pin number.
@@ -62,6 +67,10 @@ struct PinConfig
   bool isPinValid() const { return pinNr != 0xFF; }
   void invalidatePin() { pinNr = 0xFF; }
 };
+
+/// Array with multiple pin configurations.
+template <std::size_t NUM_PINS>
+using PinConfigs = std::array<PinConfig, NUM_PINS>;
 
 /// Interface of a plugin that wants to use GPIO pins.
 class PinUser

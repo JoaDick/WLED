@@ -4,8 +4,48 @@
  */
 
 #include <algorithm>
+#include <map>
 #include "wled.h"
 #include "PluginManager.h"
+
+#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+#define SORT_UI_INFO_BY_NAME 1
+#else
+#define SORT_UI_INFO_BY_NAME 0
+#endif
+
+//--------------------------------------------------------------------------------------------------
+
+namespace
+{
+
+  static const char *unknownName = "[???]";
+  static const char *notAvailable = "[n/a]";
+
+#if (SORT_UI_INFO_BY_NAME)
+  class InfoDataBuilder
+  {
+    using DataMap = std::map<const char *, String>;
+
+  public:
+    void add(const char *key, const String &value)
+    {
+      auto &entry = _dict[key];
+      if (!entry.isEmpty())
+        entry += "<br>";
+      entry += value;
+    }
+
+    using const_iterator = DataMap::const_iterator;
+    const_iterator begin() const { return _dict.begin(); }
+    const_iterator end() const { return _dict.end(); }
+
+  private:
+    DataMap _dict;
+  };
+#endif
+
+}
 
 //--------------------------------------------------------------------------------------------------
 
@@ -34,7 +74,7 @@ const char *getPinName(PinType pinType)
   case PinType::OneWire:
     return "OneWire";
   default:
-    return "[???]";
+    return unknownName;
   }
 }
 
@@ -60,7 +100,7 @@ bool isOutputPin(PinType pinType)
 
 //--------------------------------------------------------------------------------------------------
 
-void PluginManager::setUseFahrenheit(bool enabled) { TemperatureSensor::_useFahrenheit = enabled; }
+// ----- PinUser handling -----
 
 bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *pinConfig, const char *pluginName)
 {
@@ -73,8 +113,15 @@ bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *
     if (itr->pinName == nullptr)
       itr->pinName = getPinName(itr->pinType);
     if (!itr->isPinValid())
-      return rollbackPinRegistration(user, pinCount, pinConfig);
-    if (!PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr))
+    {
+      // this is just a demo example how auto-pin-assignment could look like
+      // (no interaction with PinManger in that case)
+      static uint8_t counter = 199;
+      itr->pinNr = ++counter;
+      // otherwise:
+      // return rollbackPinRegistration(user, pinCount, pinConfig);
+    }
+    else if (!PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr))
       return rollbackPinRegistration(user, pinCount, pinConfig);
     _pinUserConfigs.emplace_back(&user, *itr);
   }
@@ -103,12 +150,16 @@ void PluginManager::unregisterPinUser(PinUser &user)
 
   auto pred1 = [&user](const PinUserConfigs::value_type &entry)
   { return entry.first == &user; };
-  std::remove_if(_pinUserConfigs.begin(), _pinUserConfigs.end(), pred1);
+  _pinUserConfigs.erase(
+      std::remove_if(_pinUserConfigs.begin(), _pinUserConfigs.end(), pred1), _pinUserConfigs.end());
 
   auto pred2 = [&user](const PinUsers::value_type &entry)
   { return entry.first == &user; };
-  std::remove_if(_pinUsers.begin(), _pinUsers.end(), pred2);
+  _pinUsers.erase(
+      std::remove_if(_pinUsers.begin(), _pinUsers.end(), pred2), _pinUsers.end());
 }
+
+// ----- TemperatureSensor handling -----
 
 void PluginManager::registerTemperatureSensor(TemperatureSensor &sensor, const char *pluginName)
 {
@@ -118,16 +169,14 @@ void PluginManager::registerTemperatureSensor(TemperatureSensor &sensor, const c
 
 void PluginManager::unregisterTemperatureSensor(TemperatureSensor &sensor)
 {
+  // https://en.wikipedia.org/wiki/Erase%E2%80%93remove_idiom
   auto pred = [&sensor](const TemperatureSensors::value_type &entry)
   { return entry.first == &sensor; };
-  std::remove_if(_temperatureSensors.begin(), _temperatureSensors.end(), pred);
+  _temperatureSensors.erase(
+      std::remove_if(_temperatureSensors.begin(), _temperatureSensors.end(), pred), _temperatureSensors.end());
 }
 
-TemperatureSensor *PluginManager::getTemperatureSensor()
-{
-  // TODO(feature) Select a default sensor via UI and return that one.
-  return _temperatureSensors.empty() ? nullptr : _temperatureSensors.front().first;
-}
+// ----- HumiditySensor handling -----
 
 void PluginManager::registerHumiditySensor(HumiditySensor &sensor, const char *pluginName)
 {
@@ -139,13 +188,225 @@ void PluginManager::unregisterHumiditySensor(HumiditySensor &sensor)
 {
   auto pred = [&sensor](const HumiditySensors::value_type &entry)
   { return entry.first == &sensor; };
-  std::remove_if(_humiditySensors.begin(), _humiditySensors.end(), pred);
+  _humiditySensors.erase(
+      std::remove_if(_humiditySensors.begin(), _humiditySensors.end(), pred), _humiditySensors.end());
 }
 
-HumiditySensor *PluginManager::getHumiditySensor()
+// ----- name handling -----
+
+const char *PluginManager::getSensorName(const TemperatureSensor *sensor) const
 {
-  // TODO(feature) Select a default sensor via UI and return that one.
-  return _humiditySensors.empty() ? nullptr : _humiditySensors.front().first;
+  auto pred = [sensor](const TemperatureSensors::value_type &entry)
+  { return entry.first == sensor; };
+  const auto itr = std::find_if(_temperatureSensors.begin(), _temperatureSensors.end(), pred);
+  return itr == _temperatureSensors.end() ? unknownName : itr->second;
+}
+
+const char *PluginManager::getSensorName(const HumiditySensor *sensor) const
+{
+  auto pred = [sensor](const HumiditySensors::value_type &entry)
+  { return entry.first == sensor; };
+  const auto itr = std::find_if(_humiditySensors.begin(), _humiditySensors.end(), pred);
+  return itr == _humiditySensors.end() ? unknownName : itr->second;
+}
+
+const char *PluginManager::getPluginName(const PinUser *user) const
+{
+  auto pred = [user](const PinUsers::value_type &entry)
+  { return entry.first == user; };
+  const auto itr = std::find_if(_pinUsers.begin(), _pinUsers.end(), pred);
+  return itr == _pinUsers.end() ? unknownName : itr->second;
+}
+
+// ----- UI interaction -----
+
+void PluginManager::addToJsonInfo(JsonObject &root, bool advanced)
+{
+  JsonObject user = root["u"];
+  if (user.isNull())
+    user = root.createNestedObject("u");
+
+  addUiInfo_plugins(user);
+#if (SORT_UI_INFO_BY_NAME)
+  addUiInfo(user, advanced);
+#else
+  addUiInfo_basic(user);
+  if (advanced)
+    addUiInfo_advanced(user);
+#endif
+}
+
+#if (SORT_UI_INFO_BY_NAME)
+void PluginManager::addUiInfo(JsonObject &user, bool advanced)
+{
+  InfoDataBuilder info;
+
+  for (const auto &entry : _temperatureSensors)
+  {
+    auto &sensor = *entry.first;
+    String val;
+    val += "Temperature = ";
+    if (sensor.isReady())
+    {
+      val += sensor.temperature();
+      val += sensor.useFahrenheit() ? " °F" : " °C";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    info.add(entry.second, val);
+  }
+
+  for (const auto &entry : _humiditySensors)
+  {
+    auto &sensor = *entry.first;
+    String val;
+    val += "Humidity = ";
+    if (sensor.isReady())
+    {
+      val += sensor.humidity();
+      val += " %rel";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    info.add(entry.second, val);
+  }
+
+  if (advanced)
+  {
+    for (const auto &entry : _pinUserConfigs)
+    {
+      const PinConfig &config = entry.second;
+      String val;
+      val += config.pinName;
+      val += " = Pin ";
+      val += config.pinNr;
+      info.add(getPluginName(entry.first), val);
+    }
+  }
+
+  for (const auto &line : info)
+    user.createNestedArray(line.first).add(line.second);
+}
+
+#else
+
+void PluginManager::addUiInfo_basic(JsonObject &user)
+{
+  int counter = 0;
+  for (const auto &entry : _temperatureSensors)
+  {
+#if (0)
+    TemperatureSensor &sensor = *entry.first;
+    String key;
+    key += "Temp. ";
+    key += ++counter;
+    key += " = ";
+    if (sensor.isReady())
+    {
+      val += sensor.temperature();
+      val += sensor.useFahrenheit() ? " °F" : " °C";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    user.createNestedArray(key).add(entry.second);
+#else
+    TemperatureSensor &sensor = *entry.first;
+    String key;
+    key += "Temp. ";
+    key += ++counter;
+    key += ": ";
+    key += entry.second;
+    String val;
+    if (sensor.isReady())
+    {
+      val += sensor.temperature();
+      val += sensor.useFahrenheit() ? " °F" : " °C";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    user.createNestedArray(key).add(val);
+#endif
+  }
+
+  counter = 0;
+  for (const auto &entry : _humiditySensors)
+  {
+#if (0)
+    HumiditySensor &sensor = *entry.first;
+    String key;
+    key += "Hum. ";
+    key += ++counter;
+    key += " = ";
+    if (sensor.isReady())
+    {
+      val += sensor.humidity();
+      val += " %rel";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    user.createNestedArray(key).add(entry.second);
+#else
+    HumiditySensor &sensor = *entry.first;
+    String key;
+    key += "Hum. ";
+    key += ++counter;
+    key += ": ";
+    key += entry.second;
+    String val;
+    if (sensor.isReady())
+    {
+      val += sensor.humidity();
+      val += " %rel";
+    }
+    else
+    {
+      val += notAvailable;
+    }
+    user.createNestedArray(key).add(val);
+#endif
+  }
+}
+
+void PluginManager::addUiInfo_advanced(JsonObject &user)
+{
+  for (const auto &entry : _pinUserConfigs)
+  {
+#if (0)
+    const PinConfig &config = entry.second;
+    String key;
+    key += "GPIO ";
+    key += config.pinNr;
+    key += " = ";
+    key += config.pinName;
+    user.createNestedArray(key).add(getPluginName(entry.first));
+#else
+    const PinConfig &config = entry.second;
+    String key;
+    key += "GPIO ";
+    key += config.pinNr;
+    key += ": ";
+    key += getPluginName(entry.first);
+    user.createNestedArray(key).add(config.pinName);
+#endif
+  }
+}
+#endif
+
+void PluginManager::addUiInfo_plugins(JsonObject &user)
+{
+  // JsonArray line = user.createNestedArray("<hr>Hello");
+  // line.add("<hr> from ");
+  // line.add("<hr>Plugins!");
 }
 
 //--------------------------------------------------------------------------------------------------

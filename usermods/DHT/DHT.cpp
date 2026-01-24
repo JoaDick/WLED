@@ -20,6 +20,8 @@
 #define DHTTYPE DHT_TYPE_21
 #elif USERMOD_DHT_DHTTYPE == 22
 #define DHTTYPE DHT_TYPE_22
+#else
+#error Invalid USERMOD_DHT_DHTTYPE
 #endif
 
 // Connect pin 1 (on the left) of the sensor to +5V
@@ -61,7 +63,7 @@ class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySens
   private:
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    float humidity, tempC, temperature = 0;
+    float tempC, humidity, temperature = 0;
     bool initializing = true;
     bool disabled = false;
     #ifdef USERMOD_DHT_MQTT
@@ -120,6 +122,8 @@ class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySens
         #else
         temperature = tempC * 9 / 5 + 32;
         #endif
+        _isTemperatureValid = true;
+        _isHumidityValid = true;
 
         #ifdef USERMOD_DHT_MQTT
         // 10^n where n is number of decimal places to display in mqtt message. Please adjust buff size together with this constant
@@ -169,8 +173,8 @@ class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySens
 
       if (((millis() - lastReadTime) > 10*USERMOD_DHT_MEASUREMENT_INTERVAL)) {
         disabled = true;
-        pluginManager.unregisterTemperatureSensor(*this);
-        pluginManager.unregisterHumiditySensor(*this);
+        _isTemperatureValid = false;
+        _isHumidityValid = false;
       }
     }
 

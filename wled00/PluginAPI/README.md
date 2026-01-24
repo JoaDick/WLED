@@ -201,13 +201,22 @@ And don't forget to have a look into `platformio_override.sample.ini` and
 
 ## Ideas for potential future APIs
 
-- BatterySensor with `uint16_t batteryLevel()`, with range 0 ... 1000 representing 0.0 ... 100.0%
+- `BatterySensor` with `uint16_t batteryLevel()`, with range 0 ... 1000 representing 0.0 ... 100.0%
   (or just `float` as for the other APIs)
-- TimeProvider with `getTime()`, returning a struct of `year/month/day` & `hour/minute/second`
+- `TimeProvider` with `getTime()`, returning a struct of `year/month/day` & `hour/minute/second`
   - Localtime; without DST and timezone.
   - With usermod implementations, based on I2C or OneWire RTC or NTP or DCF77 or ...
-- AudioSensor with ...
+- `AudioSensor` with ...
   - ... be careful to stay generic with these interfaces!
-- audioreactive (since this can actually be considered as an essential part of WLED)
+- `UiClient_PowerButton` for a generic handling of all usermod's powerbuttons in the info-page of the UI.
+  - Thus a lot of repeated boilerplate code from many usermods could be consolidated inside PluginManager.
+- `UiClient_InfoSection` with a more comfortable API for adding entries to the info-page of the UI.
+  - Also enables consolidation of repeated boilerplate code from the usermods.
+- `ButtonUser` with `void onButtonPressed()`, for plugins that need an external trigger from a pushbutton.
+  - WLED somehow integrates these into its exising button management, as it already there for macros
+    on the UI configuration under "Button actions".
+  - So the plugin doesn't have to deal with raw GPIO pins when it just needs a simple trigger.
+- MQTT publisher / subscriber
+- audioreactive (since this can practically be considered as an essential part of WLED)
   - `under construction`
 - ... ?
