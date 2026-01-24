@@ -17,7 +17,7 @@ extern uint16_t mode_static(void);
  * It also shows how to access the custom API of a plugin, which may or may not be compiled into
  * the WLED binary.
  */
-uint16_t mode_UmExampleThermometer()
+uint16_t mode_Thermometer()
 {
   SEGMENT.clear();
 
@@ -110,7 +110,7 @@ class UM_PluginDemo : public Usermod, public PinUser
 
   void registerEffects()
   {
-    strip.addEffect(255, &mode_UmExampleThermometer, _data_FX_MODE_EX_UM_THERMOMETER);
+    strip.addEffect(255, &mode_Thermometer, _data_FX_MODE_EX_UM_THERMOMETER);
   }
 
   void registerPins()

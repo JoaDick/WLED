@@ -57,7 +57,7 @@ struct PinConfig
   const char *pinName;
 
   /** Pins are marked as invalid when the plugin registration fails.
-   * The PinUser must assign a different pin number and try to register again.
+   * @note The PinUser must assign a different pin number and try to register again.
    */
   bool isPinValid() const { return pinNr != 0xFF; }
   void invalidatePin() { pinNr = 0xFF; }

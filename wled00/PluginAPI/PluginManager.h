@@ -53,7 +53,7 @@ public:
   TemperatureSensor *getTemperatureSensor();
 
   /** Globally set the unit for \c TemperatureSensor::temperature() - default is °C
-   * @see This setting should only be configured via UI, and not via usermod or effect.
+   * @note This setting should only be configured via UI, and not via usermod or effect.
    */
   static void setUseFahrenheit(bool enabled);
 
@@ -71,8 +71,8 @@ public:
 private:
   bool rollbackPinRegistration(PinUser &user, uint8_t pinCount, PinConfig *pinConfig);
 
-  // TODO(optimization) To save precious DRAM, use a std::pmr::vector with a memory resource
-  // that allocates PSRAM instead. Unfortunately, that is a C++17 feature...
+  // TODO(optimization) To save precious DRAM, use std::pmr::vector with a memory resource that
+  // allocates PSRAM instead. Unfortunately, that is a C++17 feature...
   using PinUsers = std::vector<std::pair<PinUser *, const char *>>;
   using PinUserConfigs = std::vector<std::pair<PinUser *, PinConfig>>; // yes, we store a _copy_ of the config!
   PinUsers _pinUsers;
