@@ -26,7 +26,6 @@ enum class PinType : uint8_t
 };
 
 const char *getPinName(PinType pinType);
-bool isOutputPin(PinType pinType);
 
 /** Properties of a GPIO pin that a plugin wants to use.
  * @note With the current design of WLED, the PinUser (i.e. the usermod) is responsible for
@@ -42,10 +41,7 @@ bool isOutputPin(PinType pinType);
  */
 struct PinConfig
 {
-  // PinConfig() : PinConfig{PinType::undefined, nullptr} {}
-  // /*explicit*/ PinConfig(PinType pinType_) : PinConfig{pinType_, nullptr} {}
-  // PinConfig(PinType pinType_, const char *pinName_) : pinType{pinType_}, pinName{pinName_} {}
-  /*explicit*/ PinConfig(PinType pinType_ = PinType::undefined, const char *pinName_ = nullptr)
+  PinConfig(PinType pinType_ = PinType::undefined, const char *pinName_ = nullptr)
       : pinType{pinType_}, pinName{pinName_} {}
 
   /// The designated pin number.
@@ -62,7 +58,7 @@ struct PinConfig
   const char *pinName;
 
   /** Pins are marked as invalid when the plugin registration fails.
-   * @note The PinUser must assign a different pin number and try to register again.
+   * @note The PinUser must then assign a different pin number and try to register again.
    */
   bool isPinValid() const { return pinNr != 0xFF; }
   void invalidatePin() { pinNr = 0xFF; }

@@ -8,12 +8,6 @@
 #include "wled.h"
 #include "PluginManager.h"
 
-#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
-#define SORT_UI_INFO_BY_NAME 1
-#else
-#define SORT_UI_INFO_BY_NAME 0
-#endif
-
 //--------------------------------------------------------------------------------------------------
 
 namespace
@@ -22,7 +16,7 @@ namespace
   static const char *unknownName = "[???]";
   static const char *notAvailable = "[n/a]";
 
-#if (SORT_UI_INFO_BY_NAME)
+#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
   class InfoDataBuilder
   {
     using DataMap = std::map<const char *, String>;
@@ -43,13 +37,33 @@ namespace
   private:
     DataMap _dict;
   };
-#endif
+#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
+
+  bool isOutputPin(PinType pinType)
+  {
+    switch (pinType)
+    {
+    // case PinType::Digital_in:
+    case PinType::Digital_out:
+    // case PinType::Analog_in:
+    case PinType::PWM_out:
+    case PinType::I2C_scl:
+    case PinType::I2C_sda:
+    case PinType::SPI_sclk:
+    case PinType::SPI_mosi:
+    // case PinType::SPI_miso:
+    case PinType::OneWire:
+      return true;
+    default:
+      return false;
+    }
+  }
 
 }
 
 //--------------------------------------------------------------------------------------------------
 
-const char *getPinName(PinType pinType)
+const char *getPinName(PinType pinType) // only needed for allocations at PinManager
 {
   switch (pinType)
   {
@@ -75,26 +89,6 @@ const char *getPinName(PinType pinType)
     return "OneWire";
   default:
     return unknownName;
-  }
-}
-
-bool isOutputPin(PinType pinType)
-{
-  switch (pinType)
-  {
-  // case PinType::Digital_in:
-  case PinType::Digital_out:
-  // case PinType::Analog_in:
-  case PinType::PWM_out:
-  case PinType::I2C_scl:
-  case PinType::I2C_sda:
-  case PinType::SPI_sclk:
-  case PinType::SPI_mosi:
-  // case PinType::SPI_miso:
-  case PinType::OneWire:
-    return true;
-  default:
-    return false;
   }
 }
 
@@ -220,6 +214,8 @@ const char *PluginManager::getPluginName(const PinUser *user) const
 
 // ----- UI interaction -----
 
+#ifndef PLUGINMGR_DISABLE_UI
+
 void PluginManager::addToJsonInfo(JsonObject &root, bool advanced)
 {
   JsonObject user = root["u"];
@@ -227,16 +223,17 @@ void PluginManager::addToJsonInfo(JsonObject &root, bool advanced)
     user = root.createNestedObject("u");
 
   addUiInfo_plugins(user);
-#if (SORT_UI_INFO_BY_NAME)
+#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
   addUiInfo(user, advanced);
 #else
   addUiInfo_basic(user);
   if (advanced)
     addUiInfo_advanced(user);
-#endif
+#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
 }
 
-#if (SORT_UI_INFO_BY_NAME)
+#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+
 void PluginManager::addUiInfo(JsonObject &user, bool advanced)
 {
   InfoDataBuilder info;
@@ -292,7 +289,7 @@ void PluginManager::addUiInfo(JsonObject &user, bool advanced)
     user.createNestedArray(line.first).add(line.second);
 }
 
-#else
+#else // PLUGINMGR_SORT_UI_INFO_BY_NAME
 
 void PluginManager::addUiInfo_basic(JsonObject &user)
 {
@@ -400,7 +397,8 @@ void PluginManager::addUiInfo_advanced(JsonObject &user)
 #endif
   }
 }
-#endif
+
+#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
 
 void PluginManager::addUiInfo_plugins(JsonObject &user)
 {
@@ -408,6 +406,8 @@ void PluginManager::addUiInfo_plugins(JsonObject &user)
   // line.add("<hr> from ");
   // line.add("<hr>Plugins!");
 }
+
+#endif // PLUGINMGR_DISABLE_UI
 
 //--------------------------------------------------------------------------------------------------
 

@@ -11,7 +11,6 @@
 static constexpr char _name[] = "Dummy-Sensor";
 
 /** Dummy usermod implementation that simulates random sensor readings.
- * @note This usermod doesn't override getId() because it doesn't directly interact with the outside world.
  */
 class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSensor, public HumiditySensor
 {
@@ -30,7 +29,7 @@ class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSen
 
   void loop() override {}
 
-  // ----- DummySensor (our own) plugin functions -----
+  // ----- DummySensor (our own) custom plugin functions -----
 
   void enableTemperatureSensor() override
   {

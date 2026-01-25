@@ -11,6 +11,12 @@
 #include "HumiditySensor.h"
 #include "TemperatureSensor.h"
 
+// set this via PlatformIO to disable PluginManager's UI info entries for demo & debugging
+// #define PLUGINMGR_DISABLE_UI
+
+// set this via PlatformIO for sorting PluginManager's UI info entries by plugin name
+// #define PLUGINMGR_SORT_UI_INFO_BY_NAME
+
 //--------------------------------------------------------------------------------------------------
 
 /** The central component that orchestrates all plugins.
@@ -75,14 +81,23 @@ public:
    */
   static void setUseFahrenheit(bool enabled) { TemperatureSensor::_useFahrenheit = enabled; }
 
+#ifndef PLUGINMGR_DISABLE_UI
   void addToJsonInfo(JsonObject &root, bool advanced = true);
+#else
+  void addToJsonInfo(JsonObject &root, bool advanced = true) {}
+#endif
 
 private:
   bool rollbackPinRegistration(PinUser &user, uint8_t pinCount, PinConfig *pinConfig);
+#ifndef PLUGINMGR_DISABLE_UI
+#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
   void addUiInfo(JsonObject &root, bool advanced);
+#else
   void addUiInfo_basic(JsonObject &user);
   void addUiInfo_advanced(JsonObject &user);
+#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
   void addUiInfo_plugins(JsonObject &user);
+#endif // PLUGINMGR_DISABLE_UI
   const char *getPluginName(const PinUser *user) const;
 
   // TODO(optimization) To save precious DRAM, use std::pmr::vector with a memory resource that

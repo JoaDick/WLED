@@ -1,4 +1,4 @@
-# Plugin Framework for WLED's Usermods.
+# A Plugin Framework for WLED's Usermods.
 
 **TL;DR** <br>
 These interfaces here are very high-level by explicit design choice - and they are administrated
@@ -9,10 +9,10 @@ Have a look at the examples and the comments in the sourcefiles for inspiration 
 usermods.
 
 
-# Upgrading Usermods to Plugins
+## Upgrading Usermods to Plugins
 
-Read the design description below, have a look at the examples in the usermods `UM_PluginDemo` and
-`UM_DummySensor`, and follow the comments in the sourcefiles inside this directory.
+Read the design description below, follow the examples in the usermods `UM_PluginDemo` and
+`UM_DummySensor`, and have a look at the comments in the sourcefiles inside this directory.
 
 
 # Design Description
@@ -21,7 +21,7 @@ Read the design description below, have a look at the examples in the usermods `
 
 These interfaces are administrated by WLED, which means that they shall remain very stable and
 generic. All usermods can rely on the assumption that these won't change (at least not a lot and not
-breaking). The PluginManager inside WLED is aware of all instances of these interfaces, and will
+breaking). The `PluginManager` inside WLED is aware of all instances of these interfaces, and will
 establish the connections between all users and providers of them.
 
 ### The Problem
@@ -48,8 +48,8 @@ WLED defines an interface, which is designated for providing current temperature
 desperate usermod is now happy and can draw whatever it feels to, based on the data from the
 sensor. <br>
 However, another usermod will also be needed, which implements that interface. It contains the
-actual magic of reading meaningful data from a small piece of hardware. In our example, this is the
-DHT usermod:
+actual magic of reading meaningful data from a small piece of hardware. <br>
+Enter: The `DHT` usermod:
 
 ```mermaid
 classDiagram
@@ -71,11 +71,11 @@ classDiagram
 
 ### More Solutions
 
-Since there exist more real temperature sensors than the DHT usermod can handle, there are other
-usermods for other hardware. And even a dummy, which just simulates temperature readings. <br>
+Since there exist more real temperature sensors than the `DHT` usermod can handle, there are other
+usermods for other hardware. And even a `DummySensor`, which just simulates temperature readings. <br>
 Regardless of which one of those other usermodes is compiled into WLED, our little thermometer
 effect will always get its desired temperature value. Without actually having to worry about from
-whom (because the PluginManager takes care of that):
+whom (because the `PluginManager` takes care of that):
 
 ```mermaid
 classDiagram
@@ -106,7 +106,7 @@ classDiagram
 
 ## Custom Plugin APIs
 
-Our DummySensor can offer more functionality through a custom interface, which is is defined by the
+Our `DummySensor` can offer more functionality through a custom interface, which is is defined by the
 usermod itself (and not by WLED, in contrast to the administrated interfaces from before). Through
 that custom interface, it can offer any kind of functionality (whether it makes sense for anyone
 else or not). In our example, its simulated TemperatureSensor can be enabled and disabled. <br>
@@ -154,22 +154,22 @@ classDiagram
 ```
 
 To make things complete, the thermometer effect can easily detect if WLED has been compiled with or
-without the DummySensor usermod. In case the dummy is missing, it will just ignore the checkbox.
+without the `DummySensor` usermod. In case the dummy is missing, it will just ignore the checkbox.
 
 
 ## GPIO Pin Handling for Plugins
 
-Usermods can aquire their desired GPIO pins through the PluginManager. For an example, have a look
-at the `UM_PluginDemo` usermod. <br>
+Usermods can aquire their desired GPIO pins through the `PluginManager`. For an example, have a
+look at the `UM_PluginDemo` usermod. <br>
 In a nutshell, the procedure is as follows:
 - Usermods that want to use GPIO pins must have `PinUser` as a base class.
 - They specify their wanted pins through an instance (or array) of `PinConfig` member variable.
-  - It contains the desired pin number, pin functionality, and optionally a name.
-- During `setup()`, they register this configuration at the PluginManager.
-- The PluginManager forwards the request to WLED's PinManager and returns its result.
+  - This contains the desired pin number, pin functionality, and optionally a name for the pin.
+- During `setup()`, they register this configuration at the `PluginManager`.
+- The `PluginManager` forwards the request to WLED's `PinManager` and returns its result.
 
-There's no more a need for defining dedicated PinManager constants for every usermod inside
-`pin_manager.h`. All registrations are done in the name of the PluginManager (as a proxy), who
+There's no more a need for defining dedicated `PinManager` constants for every usermod inside
+`pin_manager.h`. All registrations are done in the name of the `PluginManager` (as a proxy), who
 internally keeps track of all its registered `PinUser`s.
 
 
@@ -213,8 +213,8 @@ And don't forget to have a look into `platformio_override.sample.ini` and
 - `UiClient_InfoSection` with a more comfortable API for adding entries to the info-page of the UI.
   - Also enables consolidation of repeated boilerplate code from the usermods.
 - `ButtonUser` with `void onButtonPressed()`, for plugins that need an external trigger from a pushbutton.
-  - WLED somehow integrates these into its exising button management, as it already there for macros
-    on the UI configuration under "Button actions".
+  - WLED somehow integrates these into its exising button management, as it already does for macros
+    in the UI configuration under "Button actions".
   - So the plugin doesn't have to deal with raw GPIO pins when it just needs a simple trigger.
 - MQTT publisher / subscriber
 - audioreactive (since this can practically be considered as an essential part of WLED)

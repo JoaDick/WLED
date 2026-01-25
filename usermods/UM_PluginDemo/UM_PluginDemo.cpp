@@ -6,8 +6,10 @@
 #include "wled.h"
 #include "PluginAPI/custom/DummySensor/DummySensor.h"
 
-// TODO(feature) Make this configurable via UI
-#define DEFAULT_PIN 8 // Pin number of a relay or LED.
+// override this via PlatformIO with your custom LED / relay GPIO
+#ifndef UM_PLUGIN_DEMO_RELAY_PIN
+#define UM_PLUGIN_DEMO_RELAY_PIN 8 // Pin number of a relay or LED.
+#endif
 
 extern uint16_t mode_static(void);
 
@@ -62,7 +64,7 @@ uint16_t mode_Thermometer()
   {
     // read the temperature value from the plugin
     const float temp = tempSensor->temperatureC();
-    // and draw a representing bar in the fx color
+    // and draw a representing bar in the FX color
     int tempPos = temp * (SEGLEN - 1) / 40.0f; // 20° shall be in the middle
     while (tempPos >= 0)
       SEGMENT.setPixelColor(tempPos--, fast_color_scale(SEGCOLOR(0), 64));
@@ -76,7 +78,7 @@ uint16_t mode_Thermometer()
   // got a HumiditySensor? --> draw its reading as a dot
   if (humSensor && humSensor->isReady())
   {
-    // read the humidity value from the plugin (if one exists)
+    // read the humidity value from the plugin
     const float hum = humSensor->humidity();
     // and draw a representing dot in magenta
     const int humPos = hum * (SEGLEN - 1) / 100.0f;
@@ -91,7 +93,7 @@ static const char _data_FX_MODE_EX_UM_THERMOMETER[] PROGMEM = "Ex: Thermometer@,
 
 static constexpr char _name[] = "Demo-Plugin";
 
-/** A usermod for plugin examples.
+/** A usermod as plugin example.
  */
 class UM_PluginDemo : public Usermod, public PinUser
 {
@@ -117,7 +119,9 @@ class UM_PluginDemo : public Usermod, public PinUser
 
   void registerPins()
   {
-    _pinConfig[0].pinNr = DEFAULT_PIN;
+    // for single pin configuration:
+    // _pinConfig.pinNr = UM_PLUGIN_DEMO_RELAY_PIN;
+    _pinConfig[0].pinNr = UM_PLUGIN_DEMO_RELAY_PIN;
     if (pluginManager.registerPinUser(*this, _pinConfig, _name))
     {
       pinMode(_pinConfig[0].pinNr, OUTPUT);
@@ -129,18 +133,18 @@ class UM_PluginDemo : public Usermod, public PinUser
   /// Just an example for custom plugin sensor data processing.
   void processFanControl()
   {
-    // bail out if we didn't get a GPIO
+    // quit if we didn't get a GPIO
     if (!_pinConfig[0].isPinValid())
       return;
 
-    // try to get a TemperatureSensor - and bail out if that fails
+    // try to get a TemperatureSensor - and quit if that fails
     TemperatureSensor *tempSensor = pluginManager.getTemperatureSensor();
     if (!tempSensor)
       return;
 
     // read the temperature value from the other plugin
     const float temp = tempSensor->temperatureC();
-    // control a connected fan
+    // and control a connected fan via relay
     const bool isHot = temp > 20.0f;
     digitalWrite(_pinConfig[0].pinNr, isHot ? HIGH : LOW);
   }
