@@ -125,6 +125,7 @@
 #include <WiFiUdp.h>
 #include <DNSServer.h>
 #include <SPIFFSEditor.h>
+#include "src/dependencies/ESPCPUTemp/ESPCPUTemp.h"
 #include "src/dependencies/time/TimeLib.h"
 #include "src/dependencies/timezone/Timezone.h"
 #include "src/dependencies/toki/Toki.h"
@@ -158,6 +159,7 @@
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include "src/dependencies/json/AsyncJson-v6.h"
 #include "src/dependencies/json/ArduinoJson-v6.h"
+
 
 // ESP32-WROVER features SPI RAM (aka PSRAM) which can be allocated using ps_malloc()
 // we can create custom PSRAMDynamicJsonDocument to use such feature (replacing DynamicJsonDocument)

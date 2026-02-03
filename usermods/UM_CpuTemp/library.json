@@ -1,0 +1,4 @@
+{
+  "name": "UM_CpuTemp",
+  "build": { "libArchive": false }
+}
